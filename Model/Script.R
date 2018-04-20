@@ -65,3 +65,17 @@ table(Stations$SeaRegionID)
 
 # classify stations into within 20km from land
 #sf::st_intersects(Stations, Country_Europe_Extended_UTM33N_Within20km)
+
+# hierarchical clustering
+data <- Stations[which(Stations$SeaRegionID==2), c("UTM_E", "UTM_N"),]
+data <- sf::st_set_geometry(data, NULL)
+dist <- dist(data)
+fit <- hclust(as.dist(dist), method = "complete")
+plot(fit)
+clusters <- cutree(fit, h = 1000)
+plot(data, col = clusters)
+
+install.packages("geosphere")
+library(geosphere)
+data2 <- Stations[which(Stations$SeaRegionID==2), c("Longitude", "Latitude"),]
+mdist <- distm(data2)
