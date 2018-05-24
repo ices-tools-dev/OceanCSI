@@ -99,107 +99,84 @@ setkey(Stations, StationID)
 setkey(Samples, StationID, SampleID)
 StationSamples <- Stations[Samples]
 
-# Ammonium indicator (Summer) ---------------------------------------------
+# Dissolved Inorganic Nitrogen - DIN (Winter) -----------------------------
+#   Parameters: [NO3-N] + [NO2-N] + [NH4-N]
+#   Depth: <= 10
+#   Period: Winter
+#     January - March for stations within Baltic Sea, North and Middel e.g. East of 15 E
+#     January - February for other stations
+#   Aggregation Method: Arithmetric mean of mean by station and cluster per year
+
+# Filter stations rows and columns --> ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium
+wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRA|NTRI|AMON), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrate = NTRA, Nitrite = NTRI, Ammonium = AMON)]
+wk$DIN <- apply(wk[, c("Nitrate", "Nitrite", "Ammonium")], 1, coalesce)
+
+# Calculate station mean --> ClusterID, StationID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
+wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgDIN = mean(DIN), MinDIN = min(DIN), MaxDIN = max(DIN), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+
+# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
+wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# Nitrate (Winter) -------------------------------------------------------
+#   Parameters: [NO3-N]
+#   Depth: <= 10
+#   Period: Winter
+#     January - March for stations within Baltic Sea, North and Middel e.g. East of 15 E
+#     January - February for other stations
+#   Aggregation Method: Arithmetric mean of mean by station and cluster per year
+
+# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrate
+wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRA), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrate = NTRA)]
+
+# Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
+wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrate = mean(Nitrate), MinNitrate = min(Nitrate), MaxNitrate = max(Nitrate), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+
+# Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrate, MaxMaxNitrate, SumCountSamples
+wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(MinNitrate), MaxNitrate = max(MaxNitrate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# Nitrite (Winter) -------------------------------------------------------
+#   Parameters: [NO2-N]
+#   Depth: <= 10
+#   Period: Winter
+#     January - March for stations within Baltic Sea, North and Middel e.g. East of 15 E
+#     January - February for other stations
+#   Aggregation Method: Arithmetric mean of mean by station and cluster per year
+
+# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrite
+wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRI), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrite = NTRI)]
+
+# Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrite, MaxNitrite, CountSamples
+wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrite = mean(Nitrite), MinNitrite = min(Nitrite), MaxNitrite = max(Nitrite), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+
+# Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrite, MinMinNitrite, MaxMaxNitrite, SumCountSamples
+wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# Ammonium indicator (Winter) -------------------------------------------------------
+#   Parameters: [NH4-N]
+#   Depth: <= 10
+#   Period: Winter
+#     January - March for stations within Baltic Sea, North and Middel e.g. East of 15 E
+#     January - February for other stations
+#   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Ammonium
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 6, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(AMON), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Ammonium = AMON)]
+wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(AMON), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Ammonium = AMON)]
 
-# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSampleDepth
+# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSamples
 wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgAmmonium = mean(Ammonium), MinAmmonium = min(Ammonium), MaxAmmonium = max(Ammonium), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
 
-# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSampleDepth
+# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
-wk3 <- sf::st_as_sf(wk2, coords = c("AvgLongitude", "AvgLatitude"), remove = FALSE, crs = 4326)
+# TN [NTOT] indicator (Winter) --------------------------------------------
 
-plot(wk3, max.plot = 1)
+# DIP [PO4] indicator (Winter) --------------------------------------------
 
-# Make stations spatial keeping original latitude/longitude
-#wk2 <- sf::st_as_sf(wk1, coords = c("Longitude", "Latitude"), remove = FALSE, crs = 4326)
-
-# Project stations into UTM33N
-#wk3 <- sf::st_transform(wk2, crs = 32633)
-
-#table(wk$SeaRegionID)
-
-# classify stations into within 20km from land
-#wk3$Within20km <- apply(sf::st_is_within_distance(wk3, Country_Europe_Extended, 20000, sparse = TRUE), 1, any)
-# classify stations - square assignment
-#wk3$m <- ifelse(wk3$Within20km, 80, 20)
-#wk3$iY <- round(wk3$Latitude*wk3$m)
-#wk3$latitude_center <- wk3$iY/wk3$m
-#wk3$rK <- wk3$m/cos(wk3$latitude_center*atan(1)/45)
-#wk3$iX <- round(wk3$Longitude*wk3$rK)
-#wk3$longitude_center <- wk3$iX/wk3$rK
-# classify stations - group by iX and iY - row number = stationID
-#wk3$ClusterID <- as.numeric(interaction(wk3$iX, wk3$iY, drop=TRUE))
-
-# Subsample statios
-wk4 <- wk3[1:5000,]
-
-# Cluster stations
-dist0 <- dist(wk4)
-dist <- sf::st_distance(wk4)
-fit <- hclust(as.dist(dist), method = "complete")
-plot(fit)
-wk4$ClusterID <- cutree(fit, h = 1000)
-plot(wk4, col = ClusterID)
-
-# Cluster Latitude and Longitude!
-
-# Calculate cluster Average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSampleDepth
-
-# -------------------------------------------------------------------------
-# Ammonium indicator (Summer)
-#
-# Depth <= 10
-# Month between 6 and 9 for Baltic, North else Month between 5 and 9
-# Ammonium measured
-# -------------------------------------------------------------------------
-
-# Filter Stations rows and columns --> SeaRegion, ClusterID/StationID, Year, Month, Day, Depth, Temperature, Salinity, Ammonium
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 1, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(AMON), list(SeaRegionID, StationID, Year, Month, Day, Hour, Minute, DEPH, TEMP, PSAL, AMON)]
-
-# Calculate Station Average --> ClusterID, StationID, Year, Month, Day, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSampleDepth
-wk1 <- wk[, list(min_DEPH = min(DEPH), max_DEPH = max(DEPH), avg_TEMP = mean(TEMP), avg_PSAL = mean(PSAL), avg_AMON = mean(AMON), min_AMON = min(AMON), max_AMON = max(AMON), count = .N), list(SeaRegionID, StationID, Year)]
-
-# Calculate Cluster Average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSampleDepth
-wk2 <- wk1[, list(minmin_DEPH = min(min_DEPH), maxmax_DEPH = max(max_DEPH), avgavg_TEMP = mean(avg_TEMP), avgavg_PSAL = mean(avg_PSAL), avgavg_AMON = mean(avg_AMON), minmin_AMON = min(min_AMON), maxmax_AMON = max(max_AMON), count = sum(count)), list(SeaRegionID, StationID, Year)]
-
-# Station/ClusterID, Year, Determinand (Ammonium), DeterminanUnit (umol/l), AggregationPeriod (Summer), PeriodLength (4,5), AggregationMethod (TwoStageMean), MinimumSampleDepth, MaximumSampleDepth, TemperatureMean, SalinityMean, DeterminanMean, DeterminandMinimum, DeterminandMaximum, NoOfObservations
-
-
-
-
-wk1 <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 1, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(AMON), list(min_DEPH = min(DEPH), max_DEPH = max(DEPH), avg_AMON = mean(AMON), .N) , list(SeaRegionID, Year, StationID)]
-
-
-wk <- as.data.frame(wk)
-
-# Create new container
-wk <- unique(wk[c("SeaRegionID", "Year", "StationID")])
-
-# Group by SeaRegionID, Year, StationID
-wk <- 
-groupid <- with(wk)
-
-wk 
-
-
+# TP [PTOT] indicator (Winter) --------------------------------------------
 
 # Chlorophyll a indicator -------------------------------------------------
-# Chlorophyll a measured
-# Depth <= 10
-# Month between 6 and 9 for Baltic, North else Month between 5 and 9
 
 # DissolvedOxygen indicator -----------------------------------------------
-# Oxygen measured
-# Depth <= 10
-
-# OxidisedNitrogen_Orthophosphate indicator -------------------------------
-# Nitrate, Nitrite and Phosphate measured
-# Depth <= 10
-# Month between 1 and 3 for Baltic, North and Baltic, Middle else Month between 1 and 2
 
 
 
@@ -314,3 +291,23 @@ maxdist <- 2000
 
 out <- points_in_distance(pts, maxdist = maxdist, ncut = 10)
 
+Atlantic <- fread("Input/Atlantic_time_series_EEA.txt", 
+                  sep = "\t", na.strings = "NULL", 
+                  stringsAsFactors = FALSE, header = TRUE, skip = "Cruise\t")
+
+
+table2start <- which(names(Atlantic) == "time_ISO8601")
+
+table1cols <- 1:(table2start-1)
+table2cols <- table2start:ncol(Atlantic)
+
+table1rows <- which(Atlantic$Cruise != "")
+
+Atlantic1 <- Atlantic[table1rows, ..table1cols]
+Atlantic2 <- Atlantic[, ..table2cols]
+
+table1key <- 1:nrow(Atlantic1)
+
+nrecords <- c(table1rows[-1] - 1, nrow(Atlantic)) - table1rows + 1
+Atlantic2$ID <- rep(table1key, nrecords)
+Atlantic1$ID <- table1key
