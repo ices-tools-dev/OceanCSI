@@ -6,7 +6,7 @@ ipak <- function(pkg){
   if (length(new.pkg)) install.packages(new.pkg, dependencies = TRUE)
   sapply(pkg, require, character.only = TRUE)
 }
-packages <- c("sf", "data.table")
+packages <- c("sf", "data.table", "dplyr")
 ipak(packages)
 
 # Country_Europe_Extended -------------------------------------------------
@@ -40,7 +40,7 @@ ipak(packages)
 # Stations ----------------------------------------------------------------
 
 # read stations
-Stations <- fread("input/OceanCSI_Stations_20180423.txt", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
+Stations <- fread("input/OceanCSI_Stations_20180713.txt", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
 
 # rename ID variable to StationID
 names(Stations)[names(Stations) == 'ID'] <- 'StationID'
@@ -87,7 +87,7 @@ Stations$ClusterID <- match(comb, unique(comb))
 # Samples -----------------------------------------------------------------
 
 # read samples
-Samples <- fread("input/OceanCSI_Samples_20180423.txt", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
+Samples <- fread("input/OceanCSI_Samples_20180713.txt", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
 
 # rename ID variable to SampleID
 names(Samples)[names(Samples) == 'ID'] <- 'SampleID'
@@ -108,7 +108,7 @@ StationSamples <- Stations[Samples]
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRA|NTRI|AMON), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrate = NTRA, Nitrite = NTRI, Ammonium = AMON)]
+wk <- StationSamples[Depth <= 10 & ifelse(SeaRegionID == 5 | SeaRegionID == 6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate|Nitrite|Ammonium) & (NitrateQ != 3 & NitrateQ != 4 & NitriteQ != 3 & NitriteQ != 4 & AmmoniumQ != 3 & AmmoniumQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium)]
 wk$DIN <- apply(wk[, c("Nitrate", "Nitrite", "Ammonium")], 1, coalesce)
 
 # Calculate station mean --> ClusterID, StationID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
@@ -126,7 +126,7 @@ wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), 
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrate
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRA), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrate = NTRA)]
+wk <- StationSamples[Depth <= 10 & ifelse(SeaRegionID == 5 | SeaRegionID == 6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate) & (NitrateQ != 3 & NitrateQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate)]
 
 # Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
 wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrate = mean(Nitrate), MinNitrate = min(Nitrate), MaxNitrate = max(Nitrate), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
@@ -143,7 +143,7 @@ wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), 
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrite
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(NTRI), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Nitrite = NTRI)]
+wk <- StationSamples[Depth <= 10 & ifelse(SeaRegionID == 5 | SeaRegionID == 6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrite) & (NitriteQ != 3 & NitriteQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrite)]
 
 # Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrite, MaxNitrite, CountSamples
 wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrite = mean(Nitrite), MinNitrite = min(Nitrite), MaxNitrite = max(Nitrite), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
@@ -160,7 +160,7 @@ wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), 
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Ammonium
-wk <- StationSamples[DEPH <= 10 & ifelse(SeaRegionID == 5|6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(AMON), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth = DEPH, Temperature = TEMP, Salinity = PSAL, Ammonium = AMON)]
+wk <- StationSamples[Depth <= 10 & ifelse(SeaRegionID == 5 | SeaRegionID == 6, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Ammonium) & (AmmoniumQ != 3 & AmmoniumQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Ammonium)]
 
 # Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSamples
 wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgAmmonium = mean(Ammonium), MinAmmonium = min(Ammonium), MaxAmmonium = max(Ammonium), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
