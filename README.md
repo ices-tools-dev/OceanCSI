@@ -1,19 +1,32 @@
 # EEA CSI Indicators on Nutrients, Chlorophyll a and Dissolved Oxygen
 
+## DataSource
+  * 1 ICES Bottle and low resolution CTD data
+  * 2 EMODnet Baltic Sea
+  * 3 EMODnet North Sea
+  * 4 EMODnet Mediterranean Sea
+  * 5 EMODnet Black Sea
+  * 6 EMODnet Atlantic Sea
+  
+
 ## Sea Regions / Subregions
   * Baltic Sea
+    * 1 Baltic Sea
   * North East Atlantic Ocean
-    * Greater North Sea, incl. the Kattegat and the English Channel
-    * Celtic Seas
-    * Bay of Biscay and the Iberian Coast
-    * Macaronesia
+    * 2 Greater North Sea, incl. the Kattegat and the English Channel
+    * 3 Celtic Seas
+    * 4 Bay of Biscay and the Iberian Coast
+    * 5 Macaronesia
   * Mediterranean Sea
-    * Western Mediterranean Sea
-    * Adriatic Sea
-    * Ionian Sea and the Central Mediterranean Sea
-    * Aegean-Levantine Sea
+    * 6 Western Mediterranean Sea
+    * 7 Adriatic Sea
+    * 8 Ionian Sea and the Central Mediterranean Sea
+    * 9 Aegean-Levantine Sea
   * Black Sea
-  
+    * 10 Black Sea
+    * 11 Sea of Marmara
+    * 12 Sea of Azov
+
 ## Nutrients
   * Parameters
     * Dissolved Inorganic Nitrogen - DIN [NO3-N + NO2-N + NH4-N]
