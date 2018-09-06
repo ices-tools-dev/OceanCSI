@@ -64,7 +64,7 @@
 ## Dissolved Oxygen
   * Parameters
     * Dissolved Oxygen
-  * Units 
+  * Units
     * ml/l
   * Aggregation
     * Depth: <= 10 m above seafloor
