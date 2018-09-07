@@ -120,6 +120,9 @@ stationSamples <- stations[samples]
 # free memory
 rm(stations, samples)
 
+# Prepare for plotting
+source("plotfunctions.r")
+
 # Nitrate Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO3-N]
 #   Depth: <= 10
@@ -137,6 +140,14 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrate, MaxMaxNitrate, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(MinNitrate), MaxNitrate = max(MaxNitrate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(Nitrate = mean(AvgNitrate)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Nitrate", 
+               invJet = F, 
+               limits = c(0,100))
+ggsave(filename = file.path("output", paste0("Nitrate", "_status", ".png")), height = 8, width = 10)
+
 # Nitrite Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO2-N]
 #   Depth: <= 10
@@ -153,6 +164,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 
 # Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrite, MinMinNitrite, MaxMaxNitrite, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(Nitrite = mean(AvgNitrite)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Nitrite", 
+               invJet = F, 
+               limits = "auto")
+ggsave(filename = file.path("output", paste0("Nitrite", "_status", ".png")), height = 8, width = 10)
+
 
 # Ammonium Nitrogen (Winter) ------------------------------------------------------------
 #   Parameters: [NH4-N]
