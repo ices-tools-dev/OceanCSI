@@ -146,7 +146,12 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Nitrate", 
                invJet = F, 
                limits = c(0,100))
-ggsave(filename = file.path("output", paste0("Nitrate", "_status", ".png")), height = 8, width = 10)
+saveEuropeMap(parameter = "Nitrate")
+
+
+
+
+
 
 # Nitrite Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO2-N]
@@ -170,8 +175,13 @@ wk21 <- wk2[Year > 2012, list(Nitrite = mean(AvgNitrite)), list(ClusterID, AvgLo
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Nitrite", 
                invJet = F, 
-               limits = "auto")
-ggsave(filename = file.path("output", paste0("Nitrite", "_status", ".png")), height = 8, width = 10)
+               limits = "auto"
+               )
+saveEuropeMap(parameter = "Nitrite")
+
+
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year)][, .(NrYears = .N), by = .(ClusterID)][NrYears >=5][[1]]
+wk22 <- wk2[ClusterID %in% clusterSelection]
 
 
 # Ammonium Nitrogen (Winter) ------------------------------------------------------------
@@ -190,6 +200,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(Ammonium = mean(AvgAmmonium)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Ammonium", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "Ammonium")
+
 
 # Dissolved Inorganic Nitrogen - DIN (Winter) ----------------------------------
 #   Parameters: [NO3-N] + [NO2-N] + [NH4-N]
@@ -210,6 +229,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(DIN = mean(AvgDIN)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "DIN", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "DIN")
+
+
 # Total Nitrogen (Annual) ------------------------------------------------------
 #   Parameters: [N]
 #   Depth: <= 10
@@ -224,6 +252,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalNitrogen, MinMinTotalNitrogen, MaxMaxTotalNitrogen, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalNitrogen = mean(AvgTotalNitrogen), MinTotalNitrogen = min(MinTotalNitrogen), MaxTotalNitrogen = max(MaxTotalNitrogen), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(TotalNitrogen = mean(AvgTotalNitrogen)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "TotalNitrogen", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "TotalNitrogen")
+
 
 # Phosphate Phosphorus / Dissolved Inorganic Phophorus - DIP (Winter) ---------------------
 #   Parameters: [PO4]
@@ -242,6 +279,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgPhosphate, MinMinPhosphate, MaxMaxPhosphate, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(Phosphate = mean(AvgPhosphate)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Phosphate", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "Phosphate")
+
+
 # Total Phosphorus (Annual) ----------------------------------------------------
 #   Parameters: [P]
 #   Depth: <= 10
@@ -256,6 +302,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalPhosphorus, MinMinTotalPhosphorus, MaxMaxTotalPhosphorus, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalPhosphorus = mean(AvgTotalPhosphorus), MinTotalPhosphorus = min(MinTotalPhosphorus), MaxTotalPhosphorus = max(MaxTotalPhosphorus), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(TotalPhosphorus = mean(AvgTotalPhosphorus)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "TotalPhosphorus", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "TotalPhosphorus")
+
 
 # Chlorophyll a (Summer) -------------------------------------------------------
 #   Parameters: Chlorophyll a
@@ -274,6 +329,15 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgChlorophyll, MinMinChlorophyll, MaxMaxChlorophyll, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+# plot average status for last 5 years 
+wk21 <- wk2[Year > 2012, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Chlorophyll", 
+               invJet = F, 
+               limits = "auto")
+saveEuropeMap(parameter = "Chlorophyll")
+
+
 # DissolvedOxygen (Summer/Autumn) -----------------------------------------------------
 #   Parameters: Dissolved Oxygen
 #   Depth: <= 10 m above seafloor; Adapted to <= if(sounding < 100) 20 else 50
@@ -291,21 +355,31 @@ DO_samples_summer <- stationSamples[!is.na(Oxygen) &
                                     list(SampleID, StationID, Year, Month, Day, Hour, Minute, Longitude, Latitude, longitude_center, latitude_center, Sounding, SeaRegionID, ClusterID, DataSourceID, UTM_E, UTM_N, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide)]
 
 # Check number of samples per searegion
-DO_samples_summer %>% group_by(SeaRegionID) %>% summarize(timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfSamples = n())
+# DO_samples_summer %>% group_by(SeaRegionID) %>% summarize(timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfSamples = n())
 
 # Calculate 25 percentile per cluster and year
 Q25all <- DO_samples_summer[, .(q25 = quantile(.SD, 0.25, na.rm = T)), by = c("Year", "ClusterID", "SeaRegionID")]
 
-# Calcuate mean of lower quartile 
+# Calculate mean of lower quartile 
 mean25perc <- DO_samples_summer %>% 
   left_join(Q25all) %>% 
   filter(Oxygen <= q25) %>%
   group_by(Year, ClusterID, SeaRegionID, UTM_E, UTM_N) %>%
-  summarize(avgOxygen = mean(Oxygen),
-            avgLatitude = mean(latitude_center),
-            avgLongitude = mean(longitude_center),
-            avgSounding = mean(Sounding),
-            avgDepth = mean(Depth))
+  summarize(AvgOxygen = mean(Oxygen),
+            AvgLatitude = mean(latitude_center),
+            AvgLongitude = mean(longitude_center),
+            AvgSounding = mean(Sounding),
+            AvgDepth = mean(Depth)) %>%
+  as.data.table()
 
 # Check number of clusters selected per searegion
-mean25perc %>% group_by(SeaRegionID) %>% summarize( timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfClusters = n())
+# mean25perc %>% group_by(SeaRegionID) %>% summarize( timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfClusters = n())
+
+# plot average status for last 5 years 
+wk21 <- mean25perc[Year > 2012, list(Oxygen = mean(AvgOxygen)), list(ClusterID, AvgLongitude, AvgLatitude)]
+plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+               parameterValue = "Oxygen", 
+               invJet = T, 
+               limits = "auto")
+saveEuropeMap(parameter = "Oxygen")
+

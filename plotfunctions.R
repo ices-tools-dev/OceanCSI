@@ -74,10 +74,10 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
 
 
 # idea to make wrapper around save 
-# saveEuropeMap <- function(parameter, width = 24, height = 20) {
-#   ggsave(filename = file.path("output", paste0(parameter, "_status", ".png")), 
-#          height = height, width = width)
-# }
+saveEuropeMap <- function(parameter, width = 10, height = 8) {
+  ggsave(filename = file.path("output", paste0(parameter, "_status", ".png")),
+         height = height, width = width)
+}
 
 
 
