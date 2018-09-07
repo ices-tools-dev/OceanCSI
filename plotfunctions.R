@@ -36,7 +36,7 @@ world <- fortify(countriesLow)
 # function for plotting status per parameter
 plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, invJet = TRUE, limits) {
   
-# create color scales for plotting, depending on whether good status is associated with high or low values
+  # create color scales for plotting, depending on whether good status is associated with high or low values
   if(!invJet){
     # normal jet scale
     colorscale <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan",
@@ -48,12 +48,12 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
       colorRampPalette(rev(c("#00007F", "blue", "#007FFF", "cyan",
                              "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000")))## use the inverse jet colormap
   }
-
-# geographical limits  
+  
+  # geographical limits  
   xxlim = c(bboxEurope[1], bboxEurope[3])
   yylim = c(bboxEurope[2], bboxEurope[4])
- 
-# limits for color scale 
+  
+  # limits for color scale 
   if(limits[1] == "auto")limits <- c(range(as.data.frame(data)[,parameterValue]))
   
   ggplot(data, mapping = aes_string(xlong, ylat)) +
@@ -73,11 +73,42 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
 }
 
 
-# idea to make wrapper around save 
-saveEuropeMap <- function(parameter, width = 10, height = 8) {
+# Around ggsave for saving status parameter plots 
+saveEuropeStatusMap <- function(parameter, width = 10, height = 8) {
   ggsave(filename = file.path("output", paste0(parameter, "_status", ".png")),
          height = height, width = width)
 }
 
+
+plotKendallClasses <- function(plotdata, parameterValue){
+  
+  # define color scale for trendplotting
+  cols <- c("decreasing" = "red", "no trend" = "grey", "increasing" = "green")
+  
+  # geographical limits  
+  xxlim = c(bboxEurope[1], bboxEurope[3])
+  yylim = c(bboxEurope[2], bboxEurope[4])
+  
+  ggplot() +
+    geom_polygon(data = world, aes(long, lat, group = group), fill = "darkgrey") +
+    geom_point(data = plotdata, aes(AvgLongitude, AvgLatitude, color = trend, group = ClusterID), alpha = 0.6) +
+    scale_fill_manual(values = cols) +
+    coord_quickmap(xlim = xxlim, ylim = yylim) +
+    ggtitle(paste("Trends in ", parameterValue, "1990 - 2017")) +
+    theme_bw() + 
+    theme(
+      text = element_text(size = 15),
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      legend.position = "right",
+      axis.line = element_blank(),
+      axis.ticks = element_blank())
+}
+
+# Around ggsave for saving status parameter plots 
+saveEuropeTrendMap <- function(parameter, width = 10, height = 8) {
+  ggsave(filename = file.path("output", paste0(parameter, "_trend", ".png")),
+         height = height, width = width)
+}
 
 

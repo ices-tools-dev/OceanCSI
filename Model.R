@@ -146,11 +146,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Nitrate", 
                invJet = F, 
                limits = c(0,100))
-saveEuropeMap(parameter = "Nitrate")
+saveEuropeStatusMap(parameter = "Nitrate")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgNitrate"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
 
-
-
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrate")
+saveEuropeTrendMap("Nitrate")
 
 
 # Nitrite Nitrogen (Winter) -------------------------------------------------------------
@@ -177,12 +197,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                invJet = F, 
                limits = "auto"
                )
-saveEuropeMap(parameter = "Nitrite")
+saveEuropeStatusMap(parameter = "Nitrite")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgNitrite"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
 
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year)][, .(NrYears = .N), by = .(ClusterID)][NrYears >=5][[1]]
-wk22 <- wk2[ClusterID %in% clusterSelection]
-
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrite")
+saveEuropeTrendMap("Nitrite")
 
 # Ammonium Nitrogen (Winter) ------------------------------------------------------------
 #   Parameters: [NH4-N]
@@ -207,8 +246,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Ammonium", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "Ammonium")
+saveEuropeStatusMap(parameter = "Ammonium")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgAmmonium"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Ammonium")
+saveEuropeTrendMap("Ammonium")
 
 # Dissolved Inorganic Nitrogen - DIN (Winter) ----------------------------------
 #   Parameters: [NO3-N] + [NO2-N] + [NH4-N]
@@ -235,8 +297,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "DIN", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "DIN")
+saveEuropeStatusMap(parameter = "DIN")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgDIN"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "DIN")
+saveEuropeTrendMap("DIN")
 
 # Total Nitrogen (Annual) ------------------------------------------------------
 #   Parameters: [N]
@@ -259,8 +344,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "TotalNitrogen", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "TotalNitrogen")
+saveEuropeStatusMap(parameter = "TotalNitrogen")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgTotalNitrogen"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalNitrogen")
+saveEuropeTrendMap("TotalNitrogen")
 
 # Phosphate Phosphorus / Dissolved Inorganic Phophorus - DIP (Winter) ---------------------
 #   Parameters: [PO4]
@@ -285,8 +393,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Phosphate", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "Phosphate")
+saveEuropeStatusMap(parameter = "Phosphate")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgPhosphate"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Phosphate")
+saveEuropeTrendMap("Phosphate")
 
 # Total Phosphorus (Annual) ----------------------------------------------------
 #   Parameters: [P]
@@ -309,8 +440,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "TotalPhosphorus", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "TotalPhosphorus")
+saveEuropeStatusMap(parameter = "TotalPhosphorus")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgTotalPhosphorus"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalPhosphorus")
+saveEuropeTrendMap("TotalPhosphorus")
 
 # Chlorophyll a (Summer) -------------------------------------------------------
 #   Parameters: Chlorophyll a
@@ -335,8 +489,31 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Chlorophyll", 
                invJet = F, 
                limits = "auto")
-saveEuropeMap(parameter = "Chlorophyll")
+saveEuropeStatusMap(parameter = "Chlorophyll")
 
+# trend analysis using Kendall test
+clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgChlorophyll"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Chlorophyll")
+saveEuropeTrendMap("Chlorophyll")
 
 # DissolvedOxygen (Summer/Autumn) -----------------------------------------------------
 #   Parameters: Dissolved Oxygen
@@ -381,5 +558,28 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                parameterValue = "Oxygen", 
                invJet = T, 
                limits = "auto")
-saveEuropeMap(parameter = "Oxygen")
+saveEuropeStatusMap(parameter = "Oxygen")
 
+# trend analysis using Kendall test
+clusterSelection <- mean25perc[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+wk22 <- mean25perc[ClusterID %in% clusterSelection[[1]]]
+l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
+timeserieslist <- lapply(
+  l, function(x) xts::xts(x[,"AvgOxygen"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
+KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
+df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
+names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+KendallResult.clustered <- df.KendallResult %>% 
+  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+  filter(!is.na(S)) %>%
+  mutate(trend = case_when(
+    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+    .$sl <= 0.05 & .$S > 0 ~ "increasing",
+    .$sl > 0.05 ~ "no trend")
+  ) %>%
+  mutate(trend = as.factor(trend))
+KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+
+plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Oxygen")
+saveEuropeTrendMap("Oxygen")
