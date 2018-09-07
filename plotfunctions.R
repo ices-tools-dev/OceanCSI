@@ -54,7 +54,7 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
   yylim = c(bboxEurope[2], bboxEurope[4])
  
 # limits for color scale 
-  if(limits[1] == "auto")limits <- c(range(data[,,parameterValue]))
+  if(limits[1] == "auto")limits <- c(range(data[,parameterValue]))
   
   ggplot(data, mapping = aes_string(xlong, ylat)) +
     geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "darkgrey", color = "black") +
