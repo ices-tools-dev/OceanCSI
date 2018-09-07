@@ -5,7 +5,7 @@ ipak <- function(pkg) {
   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
   if (length(new.pkg)) install.packages(new.pkg, dependencies = TRUE)
   sapply(pkg, require, character.only = TRUE)
-  }
+}
 packages <- c("sf", "data.table", "dplyr")
 ipak(packages)
 
@@ -116,6 +116,9 @@ samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors =
 setkey(stations, StationID)
 setkey(samples, StationID, SampleID)
 stationSamples <- stations[samples]
+
+# free memory
+rm(stations, samples)
 
 # Nitrate Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO3-N]
@@ -253,6 +256,36 @@ wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), 
 
 # DissolvedOxygen (Summer/Autumn) -----------------------------------------------------
 #   Parameters: Dissolved Oxygen
-#   Depth: <= 10 m above seafloor
+#   Depth: <= 10 m above seafloor; Adapted to <= if(sounding < 100) 20 else 50
 #   Period: July - October
-#   Aggregation Method: 1-, 5- and 10 percentile by station and cluster per year
+#   Aggregation Method: mean of lower quartile by station and cluster per year
+
+# Filter stations rows and columns
+DO_samples_summer <- stationSamples[!is.na(Oxygen) &
+                                      Depth <= Sounding &
+                                      case_when(
+                                        Sounding < 100 ~ Depth >= Sounding - 20,
+                                        Sounding >= 100 ~ Depth >= Sounding - 50) &
+                                      Year > 1989 &
+                                      Month > 6 & Month < 11,
+                                    list(SampleID, StationID, Year, Month, Day, Hour, Minute, Longitude, Latitude, longitude_center, latitude_center, Sounding, SeaRegionID, ClusterID, DataSourceID, UTM_E, UTM_N, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide)]
+
+# Check number of samples per searegion
+DO_samples_summer %>% group_by(SeaRegionID) %>% summarize(timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfSamples = n())
+
+# Calculate 25 percentile per cluster and year
+Q25all <- DO_samples_summer[, .(q25 = quantile(.SD, 0.25, na.rm = T)), by = c("Year", "ClusterID", "SeaRegionID")]
+
+# Calcuate mean of lower quartile 
+mean25perc <- DO_samples_summer %>% 
+  left_join(Q25all) %>% 
+  filter(Oxygen <= q25) %>%
+  group_by(Year, ClusterID, SeaRegionID, UTM_E, UTM_N) %>%
+  summarize(avgOxygen = mean(Oxygen),
+            avgLatitude = mean(latitude_center),
+            avgLongitude = mean(longitude_center),
+            avgSounding = mean(Sounding),
+            avgDepth = mean(Depth))
+
+# Check number of clusters selected per searegion
+mean25perc %>% group_by(SeaRegionID) %>% summarize( timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfClusters = n())
