@@ -56,7 +56,7 @@ searegions <- sf::st_transform(searegions, crs = 32633)
 
 # Read stations
 stations <- fread(input = stationFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
-#stations <- fread(input = stationFile, sep = "\t", nrows = 100000, na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
+# stations <- fread(input = stationFile, sep = "\t", nrows = 100000, na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
 
 # Make stations spatial keeping original latitude/longitude
 stations <- sf::st_as_sf(stations, coords = c("Longitude", "Latitude"), remove = FALSE, crs = 4326)
@@ -109,8 +109,13 @@ stations$ClusterID <- match(comb, unique(comb))
 
 # Read samples
 samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
+# samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, nrows = 2000000)
+
+# save(samples, stations, searegionlist, file = "oceancsidata.RData")
 
 # StationSamples ----------------------------------------------------------
+
+# load("oceancsidata.RData")
 
 # merge stations and samples
 setkey(stations, StationID)
@@ -140,6 +145,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrate, MaxMaxNitrate, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(MinNitrate), MaxNitrate = max(MaxNitrate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_nitrate.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(Nitrate = mean(AvgNitrate)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -149,7 +156,10 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "Nitrate")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+
+# ClusterIDs where one of the years is > 2006
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -167,7 +177,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_nitrate.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrate")
 saveEuropeTrendMap("Nitrate")
@@ -190,17 +202,20 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrite, MinMinNitrite, MaxMaxNitrite, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_nitrite.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(Nitrite = mean(AvgNitrite)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Nitrite", 
                invJet = F, 
                limits = "auto"
-               )
+)
 saveEuropeStatusMap(parameter = "Nitrite")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -218,7 +233,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_nitrite.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrite")
 saveEuropeTrendMap("Nitrite")
@@ -240,6 +257,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_ammonium.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(Ammonium = mean(AvgAmmonium)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -249,7 +268,8 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "Ammonium")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -267,7 +287,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_ammonium.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Ammonium")
 saveEuropeTrendMap("Ammonium")
@@ -291,6 +313,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_din.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(DIN = mean(AvgDIN)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -300,7 +324,8 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "DIN")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -318,7 +343,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_din.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "DIN")
 saveEuropeTrendMap("DIN")
@@ -338,6 +365,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalNitrogen, MinMinTotalNitrogen, MaxMaxTotalNitrogen, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalNitrogen = mean(AvgTotalNitrogen), MinTotalNitrogen = min(MinTotalNitrogen), MaxTotalNitrogen = max(MaxTotalNitrogen), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_totalnitrogen.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(TotalNitrogen = mean(AvgTotalNitrogen)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -347,7 +376,8 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "TotalNitrogen")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -365,7 +395,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_totalnitrogen.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalNitrogen")
 saveEuropeTrendMap("TotalNitrogen")
@@ -387,6 +419,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgPhosphate, MinMinPhosphate, MaxMaxPhosphate, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_phosphate.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(Phosphate = mean(AvgPhosphate)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -396,7 +430,8 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "Phosphate")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -414,7 +449,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_phosphate.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Phosphate")
 saveEuropeTrendMap("Phosphate")
@@ -434,6 +471,8 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalPhosphorus, MinMinTotalPhosphorus, MaxMaxTotalPhosphorus, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalPhosphorus = mean(AvgTotalPhosphorus), MinTotalPhosphorus = min(MinTotalPhosphorus), MaxTotalPhosphorus = max(MaxTotalPhosphorus), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_totalphosphorus.csv")
+
 # plot average status for last 5 years 
 wk21 <- wk2[Year > 2012, list(TotalPhosphorus = mean(AvgTotalPhosphorus)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
@@ -443,7 +482,8 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "TotalPhosphorus")
 
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -461,7 +501,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_totalphosphorus.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalPhosphorus")
 saveEuropeTrendMap("TotalPhosphorus")
@@ -483,16 +525,30 @@ wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = 
 # Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgChlorophyll, MinMinChlorophyll, MaxMaxChlorophyll, SumCountSamples
 wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
 
+fwrite(wk2, "output/status_chlorophyll.csv")
+
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > 2012, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude, SeaRegionID)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Chlorophyll", 
                invJet = F, 
                limits = "auto")
 saveEuropeStatusMap(parameter = "Chlorophyll")
 
+# Plot chlorophyll values for all regions separately
+regionsToPlot <- unique(wk21$SeaRegionID)
+for(ii in seq(1:length(regionsToPlot))){
+    plotRegionStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+                       parameterValue = "Chlorophyll", 
+                       invJet = F, 
+                       limits = "auto",
+                       region = regionsToPlot[ii])
+  saveEuropeStatusMap(parameter = paste0("Chlorophyll_", regionsToPlot[ii]))
+}
+
 # trend analysis using Kendall test
-clusterSelection <- wk2[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -510,7 +566,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_chlorophyll.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Chlorophyll")
 saveEuropeTrendMap("Chlorophyll")
@@ -549,6 +607,8 @@ mean25perc <- DO_samples_summer %>%
             AvgDepth = mean(Depth)) %>%
   as.data.table()
 
+fwrite(mean25perc, "output/status_dissolvedoxygen.csv")
+
 # Check number of clusters selected per searegion
 # mean25perc %>% group_by(SeaRegionID) %>% summarize( timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfClusters = n())
 
@@ -561,8 +621,12 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
 saveEuropeStatusMap(parameter = "Oxygen")
 
 # trend analysis using Kendall test
-clusterSelection <- mean25perc[, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
-wk22 <- mean25perc[ClusterID %in% clusterSelection[[1]]]
+yearcriteria <- mean25perc[Year>2006, unique(ClusterID)]
+clusterSelection <- mean25perc[ClusterID %in% yearcriteria][
+  , .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][
+    , .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+hist(clusterSelection$NrYears)
+wk22 <- mean25perc[ClusterID %in% clusterSelection$ClusterID]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
   l, function(x) xts::xts(x[,"AvgOxygen"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
@@ -579,7 +643,9 @@ KendallResult.clustered <- df.KendallResult %>%
     .$sl > 0.05 ~ "no trend")
   ) %>%
   mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- as.factor(KendallResult.clustered$trend)
+KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+
+fwrite(KendallResult.clustered, "output/trend_dissolvedoxygen.csv")
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Oxygen")
 saveEuropeTrendMap("Oxygen")
