@@ -98,12 +98,12 @@ plotKendallClasses <- function(plotdata, parameterValue){
   xxlim = c(bboxEurope[1], bboxEurope[3])
   yylim = c(bboxEurope[2], bboxEurope[4])
   
-  if(parameterValue != "Oxygen") setorderv(plotdata, "trend", -1)
+  if(parameterValue != "Oxygen") setorderv(plotdata, "trend", 1)
   if(parameterValue == "Oxygen") setorderv(plotdata, "trend", 1)
   
   ggplot() +
     geom_polygon(data = world, aes(long, lat, group = group), fill = "darkgrey", color = "black") +
-    geom_point(data = plotdata, aes(AvgLongitude, AvgLatitude, fill = trend, group = ClusterID), shape = 21, color = "white", size = 2) +
+    geom_point(data = plotdata, aes(AvgLongitude, AvgLatitude, fill = trend, group = ClusterID), shape = 21, color = "white", size = 1.7) +
     scale_fill_manual(values = cols) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
     ggtitle(paste("Trends in ", parameterValue, "1990 - 2017")) +

@@ -109,12 +109,13 @@ stations$ClusterID <- match(comb, unique(comb))
 
 # Read samples
 samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
-# samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, nrows = 2000000)
 
+## In order to save the current state of data, run following code
 # save(samples, stations, searegionlist, file = "oceancsidata.RData")
 
 # StationSamples ----------------------------------------------------------
 
+## In order to (re)load the data processed before, run following code. Data should have been saved in an earlier session
 # load("oceancsidata.RData")
 
 # merge stations and samples
@@ -148,8 +149,9 @@ wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), 
 fwrite(wk2, "output/status_nitrate.csv")
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Nitrate = mean(AvgNitrate)), list(ClusterID, AvgLongitude, AvgLatitude)]
-plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+wk21 <- wk2[Year > 2012, list(Nitrate = mean(AvgNitrate), Longitude = mean(AvgLongitude), Latitude = mean(AvgLatitude)), list(ClusterID)]
+
+plotStatusMaps(bboxEurope, data = wk21, xlong = "Longitude", ylat = "Latitude", 
                parameterValue = "Nitrate", 
                invJet = F, 
                limits = c(0,100))
@@ -159,7 +161,11 @@ saveEuropeStatusMap(parameter = "Nitrate")
 
 # ClusterIDs where one of the years is > 2006
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -215,7 +221,11 @@ saveEuropeStatusMap(parameter = "Nitrite")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -269,7 +279,11 @@ saveEuropeStatusMap(parameter = "Ammonium")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -325,7 +339,11 @@ saveEuropeStatusMap(parameter = "DIN")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -377,7 +395,11 @@ saveEuropeStatusMap(parameter = "TotalNitrogen")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -431,7 +453,11 @@ saveEuropeStatusMap(parameter = "Phosphate")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -483,7 +509,11 @@ saveEuropeStatusMap(parameter = "TotalPhosphorus")
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -548,7 +578,11 @@ for(ii in seq(1:length(regionsToPlot))){
 
 # trend analysis using Kendall test
 yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[ClusterID %in% yearcriteria][, .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+clusterSelection <- wk2[
+  ClusterID %in% yearcriteria][
+    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
+      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
+        NrYears >=5]
 wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
 l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
 timeserieslist <- lapply(
@@ -580,7 +614,8 @@ saveEuropeTrendMap("Chlorophyll")
 #   Aggregation Method: mean of lower quartile by station and cluster per year
 
 # Filter stations rows and columns
-DO_samples_summer <- stationSamples[!is.na(Oxygen) &
+DO_samples_summer <- stationSamples[(!is.na(Oxygen) | ! is.na(HydrogenSulphide)) &
+                                      (OxygenQ != 3 & OxygenQ != 4 | HydrogenSulphideQ != 3 & HydrogenSulphideQ != 4) &
                                       Depth <= Sounding &
                                       case_when(
                                         Sounding < 100 ~ Depth >= Sounding - 20,
@@ -591,6 +626,13 @@ DO_samples_summer <- stationSamples[!is.na(Oxygen) &
 
 # Check number of samples per searegion
 # DO_samples_summer %>% group_by(SeaRegionID) %>% summarize(timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfSamples = n())
+
+DO_samples_summer <- DO_samples_summer %>%
+  mutate(Oxygen = case_when(
+    !is.na(Oxygen) ~ Oxygen/0.7,  # convert ml/l to mg/l  http://www.ices.dk/marine-data/tools/pages/unit-conversions.aspx <http://www.ices.dk/marine-data/tools/pages/unit-conversions.aspx> 
+    is.na(Oxygen) & !is.na(HydrogenSulphide) ~ -HydrogenSulphide*0.022391/0.7 # convert umol/l via ml/l to mg/l
+  )
+  ) %>% as.data.table()
 
 # Calculate 25 percentile per cluster and year
 Q25all <- DO_samples_summer[, .(q25 = quantile(.SD, 0.25, na.rm = T)), by = c("Year", "ClusterID", "SeaRegionID")]
@@ -607,6 +649,9 @@ mean25perc <- DO_samples_summer %>%
             AvgDepth = mean(Depth)) %>%
   as.data.table()
 
+# check value distribution
+# hist(mean25perc[AvgOxygen < 0, list(AvgOxygen)]$AvgOxygen)
+
 fwrite(mean25perc, "output/status_dissolvedoxygen.csv")
 
 # Check number of clusters selected per searegion
@@ -614,6 +659,7 @@ fwrite(mean25perc, "output/status_dissolvedoxygen.csv")
 
 # plot average status for last 5 years 
 wk21 <- mean25perc[Year > 2012, list(Oxygen = mean(AvgOxygen)), list(ClusterID, AvgLongitude, AvgLatitude)]
+
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Oxygen", 
                invJet = T, 
@@ -622,8 +668,9 @@ saveEuropeStatusMap(parameter = "Oxygen")
 
 # trend analysis using Kendall test
 yearcriteria <- mean25perc[Year>2006, unique(ClusterID)]
+## something like:   clusterSelection <- wk2[ClusterID %in% yearcriteria][, list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 clusterSelection <- mean25perc[ClusterID %in% yearcriteria][
-  , .(.N), by = .(ClusterID, Year, AvgLatitude, AvgLongitude, SeaRegionID)][
+  , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
     , .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
 hist(clusterSelection$NrYears)
 wk22 <- mean25perc[ClusterID %in% clusterSelection$ClusterID]
