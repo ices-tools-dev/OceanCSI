@@ -106,7 +106,7 @@ plotKendallClasses <- function(plotdata, parameterValue){
     geom_point(data = plotdata, aes(AvgLongitude, AvgLatitude, fill = trend, group = ClusterID), shape = 21, color = "white", size = 1.7) +
     scale_fill_manual(values = cols) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
-    ggtitle(paste("Trends in ", parameterValue, "1990 - 2017")) +
+    ggtitle(paste("Trends in ", parameterValue, prettyClassNames, "1990 - 2017")) +
     theme_bw() + 
     theme(
       text = element_text(size = 15),

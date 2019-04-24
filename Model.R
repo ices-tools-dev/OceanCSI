@@ -8,6 +8,7 @@ ipak <- function(pkg) {
 }
 packages <- c("sf", "data.table", "dplyr")
 ipak(packages)
+memory.limit(size = 16000)
 
 # Input files ------------------------------------------------------------------
 
@@ -116,7 +117,7 @@ samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors =
 # StationSamples ----------------------------------------------------------
 
 ## In order to (re)load the data processed before, run following code. Data should have been saved in an earlier session
-# load("oceancsidata.RData")
+load("oceancsidata.RData")
 
 # merge stations and samples
 setkey(stations, StationID)
@@ -125,6 +126,8 @@ stationSamples <- stations[samples]
 
 # free memory
 rm(stations, samples)
+
+save(stationSamples, searegionlist, file = "oceancsidata2.RData")
 
 # Prepare for plotting
 source("plotfunctions.r")
@@ -612,6 +615,7 @@ saveEuropeTrendMap("Chlorophyll")
 #   Depth: <= 10 m above seafloor; Adapted to <= if(sounding < 100) 20 else 50
 #   Period: July - October
 #   Aggregation Method: mean of lower quartile by station and cluster per year
+#   per class (<4, 4-6, >6) trend maps
 
 # Filter stations rows and columns
 DO_samples_summer <- stationSamples[(!is.na(Oxygen) | ! is.na(HydrogenSulphide)) &
@@ -666,9 +670,30 @@ plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatit
                limits = "auto")
 saveEuropeStatusMap(parameter = "Oxygen")
 
-# trend analysis using Kendall test
-yearcriteria <- mean25perc[Year>2006, unique(ClusterID)]
-## something like:   clusterSelection <- wk2[ClusterID %in% yearcriteria][, list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][, .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
+
+# trend analysis using Kendall test for each oxygen class
+classes <- c("O2_4 mg_l", "4_O2_6 mg_l", "O2_6 mg_l")
+prettyClassNames <- c("O2 < 4 mg/l", "4 < O2 < 6 mg/l", "O2 > 6 mg/l")
+
+ID_class <- wk21 %>% mutate(
+  class = case_when(
+    Oxygen < 4 ~ 1,
+    Oxygen >= 4 & Oxygen < 6 ~ 2,
+    Oxygen >= 6 ~ 3
+  )
+) %>% select(ClusterID, class) %>% as.data.table()
+
+# merge wk21 and class list
+setkey(mean25perc, ClusterID)
+setkey(ID_class, ClusterID)
+
+mean25perc2 <- mean25perc[ID_class]
+
+
+for(cc in seq(1:length(classes))){
+  
+yearcriteria <- mean25perc2[Year>2006 & class == cc, unique(ClusterID)]
+
 clusterSelection <- mean25perc[ClusterID %in% yearcriteria][
   , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
     , .(NrYears = .N), by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][NrYears >=5]
@@ -692,7 +717,11 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_dissolvedoxygen.csv")
+
+fwrite(KendallResult.clustered, paste0("output/trend_dissolvedoxygen", classes[cc], ".csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Oxygen")
-saveEuropeTrendMap("Oxygen")
+saveEuropeTrendMap(paste("Oxygen", classes[cc]))
+
+}
+
