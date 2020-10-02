@@ -14,13 +14,14 @@ ipak(packages)
 coastlineFile <- "Input/Country_Europe_Extended.shp"
 #coastlineFile <- "Input/EEA_Coastline_20170228.shp"
 searegionFile <- "Input/EEA_SeaRegion_20180831.shp"
-stationFile <- "Input/OceanCSI_Station_20180829.txt"
-sampleFile <- "Input/OceanCSI_Sample_20180829.txt"
+#searegionFile <- "Input/MSFD_Marine_Subregions_draft_EU_EEZ_20130614.shp"
+stationFile <- "Input/OceanCSI_Station_20201002.txt"
+sampleFile <- "Input/OceanCSI_Sample_20201002.txt"
 
 # Coastline --------------------------------------------------------------------
 
 # Read shapefile
-coastline <- sf::st_read(coastlineFile)
+coastline <- st_read(coastlineFile)
 
 # Check if geometries is valid
 #sf::st_is_valid(coastline)
