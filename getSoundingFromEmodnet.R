@@ -1,11 +1,14 @@
 
-
-
+# Script that fetches station depth from EMODnet Bathymetry REST service
+# Information about the REST service: https://portal.emodnet-bathymetry.eu/services/#rest
+# author: willem.stolte@deltares.nl
+# 
 
 require(httr)
 require(jsonlite)
 require(data.table)
 require(tidyverse)
+require(leaflet)
 
 # example = "https://rest.emodnet-bathymetry.eu/depth_sample?geom=POINT(3.3233642578125%2055.01953125)"
 # r = GET(example)
@@ -52,6 +55,15 @@ stations3 <- stations2 %>% #head(2) %>%
 
 write_delim(stations3, "station_emodnetDepth.csv", delim = ";")
 
+# alternatively, read earlier retrieved data from file.
+
+stations3 <- read_delim("station_emodnetDepth.csv", delim = ";")
+
+
+#===== analysis ====================================
+
+stations3 <- read_delim("station_emodnetDepth.csv", delim = ";")
+
 ## compare EMODnet depths with soundings in the stations table
 
 stations3 %>% 
@@ -74,4 +86,22 @@ stations3 %>%
   coord_cartesian(xlim = c(0,50), ylim = c(0,50))
 
 ggsave("output/depthplotShallow.png", width = 10, height = 10)
+
+stations3 %>%
+  mutate(relVarDepth = (maxDepth- minDepth)/avgDepth) %>%
+  ggplot(aes(log10(relVarDepth))) + geom_histogram()
+
+stations3 %>%
+  filter((maxDepth - minDepth) > 0.1 * avgDepth) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(radius = 0.1)
+
+stations3 %>%
+  drop_na(Sounding, avgDepth) %>%
+  filter(abs((avgDepth - Sounding)/Sounding) > 1) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(radius = 0.1, label = ~paste(Year, avgDepth, Sounding))
+  
 
