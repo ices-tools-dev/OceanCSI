@@ -2,12 +2,15 @@
 
 ## DataSource
   * 1 ICES Bottle and low resolution CTD data
-  * 2 EMODnet Baltic Sea
-  * 3 EMODnet North Sea
-  * 4 EMODnet Mediterranean Sea
-  * 5 EMODnet Black Sea
-  * 6 EMODnet Atlantic Sea
-  
+  * 2 ICES high resolution CTD data
+  * 3 ICES Pump data
+  * 4 EMODnet Arctic Sea
+  * 5 EMODnet Atlantic Sea
+  * 6 EMODnet Baltic Sea
+  * 7 EMODnet Black Sea
+  * 8 EMODnet Mediterranean Sea
+  * 9 EMODnet North Sea
+  * 10 EEA WISE data
 
 ## Sea Regions / Subregions
   * Baltic Sea
@@ -29,7 +32,6 @@
 
 ## Nutrients
   * Parameters
-    * Dissolved Inorganic Nitrogen - DIN [NO3-N + NO2-N + NH4-N]
     * Nitrate Nitrogen [NO3-N]
     * Nitrite Nitrogen [NO2-N]
     * Ammonium Nitrogen [NH4-N]
