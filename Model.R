@@ -5,7 +5,7 @@ source("utilities_plot.R")
 assessmentYear <- 2021
 
 #load(file.path("Output", "StationSamples.RData"))
-stationSamples <- fread(file.path("Data", "StationSamples.csv"))
+stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
 
 stationSamples <- stationSamples[, .(
   DataSourceID,
@@ -42,6 +42,10 @@ stationSamples <- stationSamples[, .(
   Chlorophyll = Chlorophyll.a..ug.l.,
   ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
   )]
+
+# Station Samples Summary
+# To Do - Make a summary output per indicator taking the indicator criteria into account 
+stationSamplesSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID)]
 
 # Nitrate Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO3-N]
