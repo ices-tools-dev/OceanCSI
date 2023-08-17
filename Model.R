@@ -1,137 +1,47 @@
-# ipak function ----------------------------------------------------------------
-# install and load multiple R packages.
-# check to see if packages are installed. Install them if they are not, then load them into the R session.
-ipak <- function(pkg) {
-  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-  if (length(new.pkg)) install.packages(new.pkg, dependencies = TRUE)
-  sapply(pkg, require, character.only = TRUE)
-}
-packages <- c("sf", "data.table", "dplyr")
-ipak(packages)
-memory.limit(size = 16000)
+library(data.table)
 
-# Input files ------------------------------------------------------------------
+source("utilities_plot.R")
 
-coastlineFile <- "Input/Country_Europe_Extended.shp"
-#coastlineFile <- "Input/EEA_Coastline_20170228.shp"
-searegionFile <- "Input/EEA_SeaRegion_20180831.shp"
-#searegionFile <- "Input/MSFD_Marine_Subregions_draft_EU_EEZ_20130614.shp"
-stationFile <- "Input/OceanCSI_Station_20201002.txt"
-sampleFile <- "Input/OceanCSI_Sample_20201002.txt"
+assessmentYear <- 2021
 
-# Coastline --------------------------------------------------------------------
+#load(file.path("Output", "StationSamples.RData"))
+stationSamples <- fread(file.path("Data", "StationSamples.csv"))
 
-# Read shapefile
-coastline <- st_read(coastlineFile)
-
-# Check if geometries is valid
-#sf::st_is_valid(coastline)
-
-# Make geometries valid by doing the buffer of nothing trick
-#coastline <- sf::st_buffer(coastline, 0.0)
-
-# Transform projection into UTM33N
-coastline <- sf::st_transform(coastline, crs = 32633)
-
-# Make 1km buffer
-#coastline_Within1km <- sf::st_buffer(coastline, 1000)
-
-# Make 20km buffer
-coastline_Within20km <- sf::st_buffer(coastline, 20000)
-#plot(coastline_Within20km)
-
-# SeaRegions -------------------------------------------------------------------
-
-# Read shapefile
-searegions <- sf::st_read(searegionFile)
-
-# Check if geometries is valid
-#sf::st_is_valid(searegions)
-
-# Make geometries valid by doing the buffer of nothing trick
-#searegions <- sf::st_buffer(searegions, 0.0)
-
-# Transform projection into UTM33N
-searegions <- sf::st_transform(searegions, crs = 32633)
-
-# Stations ---------------------------------------------------------------------
-
-# Read stations
-stations <- fread(input = stationFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
-# stations <- fread(input = stationFile, sep = "\t", nrows = 100000, na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
-
-# Make stations spatial keeping original latitude/longitude
-stations <- sf::st_as_sf(stations, coords = c("Longitude", "Latitude"), remove = FALSE, crs = 4326)
-
-# Project stations into UTM33N
-stations <- sf::st_transform(stations, crs = 32633)
-stations$UTM_E <- sf::st_coordinates(stations)[,1]
-stations$UTM_N <- sf::st_coordinates(stations)[,2]
-stations <- sf::st_transform(stations, crs = 4326)
-stations$Lon <- sf::st_coordinates(stations)[,1]
-stations$Lat <- sf::st_coordinates(stations)[,2]
-stations <- sf::st_transform(stations, crs = 32633)
-
-# Classify stations into sea regions - the R way. However the stations have allready been classified when extracting the data from the database
-#stations$SeaRegionID_R <- sf::st_intersects(stations, searegions) %>% as.numeric()
-#table(stations$SeaRegionID_R)
-#table(stations$SeaRegionID)
-
-# Classify stations into on land
-#stations$OnLand <- apply(sf::st_intersects(stations, coastline, sparse = TRUE), 1, any)
-
-# Classify stations into within 1km from land
-#stations$Within1km <- apply(sf::st_intersects(stations, coastline_Within1km, sparse = TRUE), 1, any)
-
-# Classify stations into within 20km from land
-stations$Within20km <- apply(sf::st_intersects(stations, coastline_Within20km, sparse = TRUE), 1, any)
-
-# Remove spatial column in order to merge station samples
-stations <- sf::st_set_geometry(stations, NULL)
-
-# Classify stations using square assignment
-#
-# Stations are defined geographical by position given as longitude and latitude in decimal degrees, but do not contain relaible
-# and consistent station identification. The position of the same station migth vary slighly over time. In order to improve the
-# aggregation into to time series, data are aggregated into squares with sides of 1.375 km for coastal stations within 20 km
-# from the coastline (m = 80) and 5.5 km for open water station more than 20 km away from the coastline (m = 20).
-# The procedure does not totally prevent errorneous aggregation of data belonging to stations close to each other or errorneous
-# breakup of time series into fragments due to small shifts in position, but reduces the problem considerably.
-#station$m <- 20
-stations$m <- ifelse(stations$Within20km, 80, 20)
-stations$iY <- round(stations$Latitude*stations$m)
-stations$latitude_center <- stations$iY/stations$m
-stations$rK <- stations$m/cos(stations$latitude_center*atan(1)/45)
-stations$iX <- round(stations$Longitude*stations$rK)
-stations$longitude_center <- stations$iX/stations$rK
-comb <- with(stations, paste(iX, iY))
-stations$ClusterID <- match(comb, unique(comb))
-
-# Samples ----------------------------------------------------------------------
-
-# Read samples
-samples <- fread(sampleFile, sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE)
-
-## In order to save the current state of data, run following code
-# save(samples, stations, searegionlist, file = "oceancsidata.RData")
-
-# StationSamples ----------------------------------------------------------
-
-## In order to (re)load the data processed before, run following code. Data should have been saved in an earlier session
-load("oceancsidata.RData")
-
-# merge stations and samples
-setkey(stations, StationID)
-setkey(samples, StationID, SampleID)
-stationSamples <- stations[samples]
-
-# free memory
-rm(stations, samples)
-
-save(stationSamples, searegionlist, file = "oceancsidata2.RData")
-
-# Prepare for plotting
-source("plotfunctions.r")
+stationSamples <- stationSamples[, .(
+  DataSourceID,
+  SeaRegionID,
+  ClusterID,  
+  Latitude = Latitude..degrees_north.,
+  Longitude = Longitude..degrees_east.,
+  Year,
+  Month,
+  Sounding = Bot..Depth..m.,
+  Bathymetric = BathymetricAvg, 
+  Depth = Depth..m.,
+  DepthQ = QV.ODV.Depth..m.,
+  Temperature = Temperature..degC.,
+  TemperatureQ = QV.ODV.Temperature..degC.,
+  Salinity = Practical.Salinity..dmnless.,
+  SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
+  Oxygen = Dissolved.Oxygen..ml.l.,
+  OxygenQ = QV.ODV.Dissolved.Oxygen..ml.l.,
+  Phosphate = Phosphate.Phosphorus..PO4.P...umol.l.,
+  PhosphateQ = QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l.,
+  TotalPhosphorus = Total.Phosphorus..P...umol.l.,
+  TotalPhosphorusQ = QV.ODV.Total.Phosphorus..P...umol.l.,
+  Nitrate = Nitrate.Nitrogen..NO3.N...umol.l.,
+  NitrateQ = QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l.,
+  Nitrite = Nitrite.Nitrogen..NO2.N...umol.l.,
+  NitriteQ = QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l.,
+  Ammonium = Ammonium.Nitrogen..NH4.N...umol.l.,
+  AmmoniumQ = QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
+  TotalNitrogen = Total.Nitrogen..N...umol.l.,
+  TotalNitrogenQ = QV.ODV.Total.Nitrogen..N...umol.l.,
+  HydrogenSulphide = Hydrogen.Sulphide..H2S.S...umol.l.,
+  HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
+  Chlorophyll = Chlorophyll.a..ug.l.,
+  ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
+  )]
 
 # Nitrate Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO3-N]
@@ -141,19 +51,23 @@ source("plotfunctions.r")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrate
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate) & (NitrateQ != 3 & NitrateQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate) & (NitrateQ != 3 & NitrateQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate)]
 
-# Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrate = mean(Nitrate), MinNitrate = min(Nitrate), MaxNitrate = max(Nitrate), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrate = mean(Nitrate), MinNitrate = min(Nitrate), MaxNitrate = max(Nitrate), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrate, MaxMaxNitrate, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(MinNitrate), MaxNitrate = max(MaxNitrate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrate, MaxMaxNitrate, SumCountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(AvgNitrate), MaxNitrate = max(AvgNitrate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_nitrate.csv")
+# Calculate cluster mean --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgNitrate, MinMinMinNitrate, MaxMaxMaxNitrate, SumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrate = mean(AvgNitrate), MinNitrate = min(MinNitrate), MaxNitrate = max(MaxNitrate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
 
-# plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Nitrate = mean(AvgNitrate), Longitude = mean(AvgLongitude), Latitude = mean(AvgLatitude)), list(ClusterID)]
+# Write output
+fwrite(wk2, file.path("Output", "Nitrate_status.csv"))
+
+# Plot average status for last 5 years 
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Nitrate = mean(AvgNitrate), Longitude = mean(AvgLongitude), Latitude = mean(AvgLatitude)), list(ClusterID)]
 
 plotStatusMaps(bboxEurope, data = wk21, xlong = "Longitude", ylat = "Latitude", 
                parameterValue = "Nitrate", 
@@ -164,7 +78,7 @@ saveEuropeStatusMap(parameter = "Nitrate")
 # trend analysis using Kendall test
 
 # ClusterIDs where one of the years is > 2006
-yearcriteria <- wk2[Year>2006, unique(ClusterID)]
+yearcriteria <- wk2[Year > 2006, unique(ClusterID)]
 clusterSelection <- wk2[
   ClusterID %in% yearcriteria][
     , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
@@ -189,11 +103,10 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_nitrate.csv")
+fwrite(KendallResult.clustered, file.path("Output", "Nitrate_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrate")
 saveEuropeTrendMap("Nitrate")
-
 
 # Nitrite Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO2-N]
@@ -204,18 +117,22 @@ saveEuropeTrendMap("Nitrate")
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrite
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrite) & (NitriteQ != 3 & NitriteQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrite)]
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrite) & (NitriteQ != 3 & NitriteQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrite)]
 
-# Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrite, MaxNitrite, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrite = mean(Nitrite), MinNitrite = min(Nitrite), MaxNitrite = max(Nitrite), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrite = mean(Nitrite), MinNitrite = min(Nitrite), MaxNitrite = max(Nitrite), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrite, MinMinNitrite, MaxMaxNitrite, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station mean --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgNitrate, MinMinNitrite, MaxMaxNitrite, SumCountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_nitrite.csv")
+# Calculate cluster mean --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgNitrite, MinMinMinNitrite, MaxMaxMaxNitrite, SumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgNitrite = mean(AvgNitrite), MinNitrite = min(MinNitrite), MaxNitrite = max(MaxNitrite), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
 
-# plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Nitrite = mean(AvgNitrite)), list(ClusterID, AvgLongitude, AvgLatitude)]
+# Write output
+fwrite(wk2, file.path("Output", "Nitrite_status.csv"))
+
+# Plot average status for last 5 years 
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Nitrite = mean(AvgNitrite)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Nitrite", 
                invJet = F, 
@@ -249,7 +166,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_nitrite.csv")
+fwrite(KendallResult.clustered, file.path("Output", "Nitrite_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Nitrite")
 saveEuropeTrendMap("Nitrite")
@@ -262,19 +179,22 @@ saveEuropeTrendMap("Nitrite")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Ammonium
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Ammonium) & (AmmoniumQ != 3 & AmmoniumQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Ammonium)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, Ammonium
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Ammonium) & (AmmoniumQ != 3 & AmmoniumQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Ammonium)]
 
-# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgAmmonium = mean(Ammonium), MinAmmonium = min(Ammonium), MaxAmmonium = max(Ammonium), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgAmmonium = mean(Ammonium), MinAmmonium = min(Ammonium), MaxAmmonium = max(Ammonium), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station annual average --> SeaRegionID, ClusterID, StationID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, CountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_ammonium.csv")
+# Calculate cluster annual average --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgAmmonium, MinMinMinAmmonium, MaxMaxMaxAmmonium, SumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "Ammonium_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Ammonium = mean(AvgAmmonium)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Ammonium = mean(AvgAmmonium)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Ammonium", 
                invJet = F, 
@@ -307,7 +227,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_ammonium.csv")
+fwrite(KendallResult.clustered, file.path("Output", "Ammonium_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Ammonium")
 saveEuropeTrendMap("Ammonium")
@@ -320,21 +240,24 @@ saveEuropeTrendMap("Ammonium")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate|Nitrite|Ammonium) & (NitrateQ != 3 & NitrateQ != 4 & NitriteQ != 3 & NitriteQ != 4 & AmmoniumQ != 3 & AmmoniumQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate|Nitrite|Ammonium) & (NitrateQ != 3 & NitrateQ != 4 & NitriteQ != 3 & NitriteQ != 4 & AmmoniumQ != 3 & AmmoniumQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium)]
 coalesce <- function(x) if (all(is.na(x))) NA else sum(x, na.rm = TRUE)
 wk$DIN <- apply(wk[, c("Nitrate", "Nitrite", "Ammonium")], 1, coalesce)
 
-# Calculate station mean --> ClusterID, StationID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgDIN = mean(DIN), MinDIN = min(DIN), MaxDIN = max(DIN), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgDIN = mean(DIN), MinDIN = min(DIN), MaxDIN = max(DIN), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_din.csv")
+# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgDIN, MinMinMinDIN, MaxMaxMaxDIN, SumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "DIN_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(DIN = mean(AvgDIN)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(DIN = mean(AvgDIN)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "DIN", 
                invJet = F, 
@@ -367,7 +290,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_din.csv")
+fwrite(KendallResult.clustered, file.path("Output", "DIN_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "DIN")
 saveEuropeTrendMap("DIN")
@@ -378,19 +301,22 @@ saveEuropeTrendMap("DIN")
 #   Period: Annual
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, TotalNitrogen
-wk <- stationSamples[Depth <= 10 & !is.na(TotalNitrogen) & (TotalNitrogenQ != 3 & TotalNitrogenQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalNitrogen)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, StationID, Year, Depth, Temperature, Salinity, TotalNitrogen
+wk <- stationSamples[Depth <= 10 & !is.na(TotalNitrogen) & (TotalNitrogenQ != 3 & TotalNitrogenQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalNitrogen)]
 
-# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgTotalNitrogen, MinTotalNitrogen, MaxTotalNitrogen, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalNitrogen = mean(TotalNitrogen), MinTotalNitrogen = min(TotalNitrogen), MaxTotalNitrogen = max(TotalNitrogen), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgTotalNitrogen, MinTotalNitrogen, MaxTotalNitrogen, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalNitrogen = mean(TotalNitrogen), MinTotalNitrogen = min(TotalNitrogen), MaxTotalNitrogen = max(TotalNitrogen), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalNitrogen, MinMinTotalNitrogen, MaxMaxTotalNitrogen, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalNitrogen = mean(AvgTotalNitrogen), MinTotalNitrogen = min(MinTotalNitrogen), MaxTotalNitrogen = max(MaxTotalNitrogen), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station annual average --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalNitrogen, MinMinTotalNitrogen, MaxMaxTotalNitrogen, CountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalNitrogen = mean(AvgTotalNitrogen), MinTotalNitrogen = min(MinTotalNitrogen), MaxTotalNitrogen = max(MaxTotalNitrogen), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_totalnitrogen.csv")
+# Calculate cluster annual average --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgTotalNitrogen, MinMinMinTotalNitrogen, MaxMaxMaxTotalNitrogen, SumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalNitrogen = mean(AvgTotalNitrogen), MinTotalNitrogen = min(MinTotalNitrogen), MaxTotalNitrogen = max(MaxTotalNitrogen), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "TotalNitrogen_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(TotalNitrogen = mean(AvgTotalNitrogen)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(TotalNitrogen = mean(AvgTotalNitrogen)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "TotalNitrogen", 
                invJet = F, 
@@ -423,7 +349,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_totalnitrogen.csv")
+fwrite(KendallResult.clustered, file.path("Output", "TotalNitrogen_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalNitrogen")
 saveEuropeTrendMap("TotalNitrogen")
@@ -436,19 +362,22 @@ saveEuropeTrendMap("TotalNitrogen")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Phosphate
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Phosphate) & (PhosphateQ != 3 & PhosphateQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Phosphate)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, Phosphate
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Phosphate) & (PhosphateQ != 3 & PhosphateQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Phosphate)]
 
-# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgPhosphate, MinPhosphate, MaxPhosphate, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgPhosphate = mean(Phosphate), MinPhosphate = min(Phosphate), MaxPhosphate = max(Phosphate), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgPhosphate, MinPhosphate, MaxPhosphate, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgPhosphate = mean(Phosphate), MinPhosphate = min(Phosphate), MaxPhosphate = max(Phosphate), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgPhosphate, MinMinPhosphate, MaxMaxPhosphate, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station annual average --> SeaRegionID, ClusterID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgPhosphate, MinMinPhosphate, MaxMaxPhosphate, SumCountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_phosphate.csv")
+# Calculate cluster annual average --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgPhosphate, MinMinMinPhosphate, MaxMaxMaxPhosphate, SumSumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "Phosphate_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Phosphate = mean(AvgPhosphate)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Phosphate = mean(AvgPhosphate)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Phosphate", 
                invJet = F, 
@@ -481,7 +410,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_phosphate.csv")
+fwrite(KendallResult.clustered, file.path("Output", "Phosphate_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Phosphate")
 saveEuropeTrendMap("Phosphate")
@@ -492,19 +421,22 @@ saveEuropeTrendMap("Phosphate")
 #   Period: Annual
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, TotalPhosphorus
-wk <- stationSamples[Depth <= 10 & !is.na(TotalPhosphorus) & (TotalPhosphorusQ != 3 & TotalPhosphorusQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalPhosphorus)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, TotalPhosphorus
+wk <- stationSamples[Depth <= 10 & !is.na(TotalPhosphorus) & (TotalPhosphorusQ != 3 & TotalPhosphorusQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalPhosphorus)]
 
-# Calculate station annual average --> ClusterID, StationID, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgTotalPhosphorus, MinTotalPhosphorus, MaxTotalPhosphorus, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalPhosphorus = mean(TotalPhosphorus), MinTotalPhosphorus = min(TotalPhosphorus), MaxTotalPhosphorus = max(TotalPhosphorus), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgTotalPhosphorus, MinTotalPhosphorus, MaxTotalPhosphorus, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalPhosphorus = mean(TotalPhosphorus), MinTotalPhosphorus = min(TotalPhosphorus), MaxTotalPhosphorus = max(TotalPhosphorus), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster annual average --> ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalPhosphorus, MinMinTotalPhosphorus, MaxMaxTotalPhosphorus, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalPhosphorus = mean(AvgTotalPhosphorus), MinTotalPhosphorus = min(MinTotalPhosphorus), MaxTotalPhosphorus = max(MaxTotalPhosphorus), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station annual average --> SeaRegionID, ClusterID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgTotalPhosphorus, MinMinTotalPhosphorus, MaxMaxTotalPhosphorus, SumCountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalPhosphorus = mean(AvgTotalPhosphorus), MinTotalPhosphorus = min(MinTotalPhosphorus), MaxTotalPhosphorus = max(MaxTotalPhosphorus), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_totalphosphorus.csv")
+# Calculate cluster annual average --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgTotalPhosphorus, MinMinMinTotalPhosphorus, MaxMaxMaxTotalPhosphorus, SumSumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgTotalPhosphorus = mean(AvgTotalPhosphorus), MinTotalPhosphorus = min(MinTotalPhosphorus), MaxTotalPhosphorus = max(MaxTotalPhosphorus), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "TotalPhosphorus_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(TotalPhosphorus = mean(AvgTotalPhosphorus)), list(ClusterID, AvgLongitude, AvgLatitude)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(TotalPhosphorus = mean(AvgTotalPhosphorus)), list(ClusterID, AvgLongitude, AvgLatitude)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "TotalPhosphorus", 
                invJet = F, 
@@ -537,7 +469,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_totalphosphorus.csv")
+fwrite(KendallResult.clustered, file.path("Output", "TotalPhosphorus_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "TotalPhosphorus")
 saveEuropeTrendMap("TotalPhosphorus")
@@ -550,19 +482,22 @@ saveEuropeTrendMap("TotalPhosphorus")
 #     May - September for all other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
-# Filter stations rows and columns --> ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Latitude > 59, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(Chlorophyll) & (ChlorophyllQ != 3 & ChlorophyllQ != 4), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll)]
+# Filter stations rows and columns --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Latitude > 59, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(Chlorophyll) & (ChlorophyllQ != 3 & ChlorophyllQ != 4), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll)]
 
-# Calculate station mean --> ClusterID, StationID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgTemperature, AvgSalinity, AvgChlorophyll, MinChlorophyll, MaxChlorophyll, CountSamples
-wk1 <- wk[, list(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgChlorophyll = mean(Chlorophyll), MinChlorophyll = min(Chlorophyll), MaxChlorophyll = max(Chlorophyll), SampleCount = .N), list(SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year)]
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgChlorophyll, MinChlorophyll, MaxChlorophyll, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgChlorophyll = mean(Chlorophyll), MinChlorophyll = min(Chlorophyll), MaxChlorophyll = max(Chlorophyll), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
-# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgSalinity, AvgAvgChlorophyll, MinMinChlorophyll, MaxMaxChlorophyll, SumCountSamples
-wk2 <- wk1[, list(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), list(SeaRegionID, ClusterID, Year)]
+# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgChlorophyll, MinMinChlorophyll, MaxMaxChlorophyll, CountSamples
+wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
-fwrite(wk2, "output/status_chlorophyll.csv")
+# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgChlorophyll, MinMinMinChlorophyll, MaxMaxMaxChlorophyll, SumSumCountSamples
+wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+fwrite(wk2, file.path("Output", "Chlorophyll_status.csv"))
 
 # plot average status for last 5 years 
-wk21 <- wk2[Year > 2012, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude, SeaRegionID)]
+wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude, SeaRegionID)]
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Chlorophyll", 
                invJet = F, 
@@ -606,7 +541,7 @@ KendallResult.clustered <- df.KendallResult %>%
   mutate(trend = as.factor(trend))
 KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, "output/trend_chlorophyll.csv")
+fwrite(KendallResult.clustered, file.path("Output", "Chlorophyll_trend.csv"))
 
 plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Chlorophyll")
 saveEuropeTrendMap("Chlorophyll")
@@ -618,59 +553,47 @@ saveEuropeTrendMap("Chlorophyll")
 #   Aggregation Method: mean of lower quartile by station and cluster per year
 #   per class (<4, 4-6, >6) trend maps
 
-# Filter stations rows and columns
-DO_samples_summer <- stationSamples[(!is.na(Oxygen) | ! is.na(HydrogenSulphide)) &
-                                      (OxygenQ != 3 & OxygenQ != 4 | HydrogenSulphideQ != 3 & HydrogenSulphideQ != 4) &
-                                      Depth <= Sounding &
-                                      case_when(
-                                        Sounding < 100 ~ Depth >= Sounding - 20,
-                                        Sounding >= 100 ~ Depth >= Sounding - 50) &
-                                      Year > 1989 &
-                                      Month > 6 & Month < 11,
-                                    list(SampleID, StationID, Year, Month, Day, Hour, Minute, Longitude, Latitude, longitude_center, latitude_center, Sounding, SeaRegionID, ClusterID, DataSourceID, UTM_E, UTM_N, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide)]
+# Filter stations rows and columns --> DataSourceID, SeaRegionID, ClusterID, Latitude, Longitude, Sounding, Bathymetric, Year, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide
+wk <- stationSamples[(Depth <= Bathymetric & case_when(Bathymetric < 100 ~ Depth >= Bathymetric - 20, Bathymetric >= 100 ~ Depth >= Bathymetric - 50)) & (Month >= 7 & Month <= 10) & (!is.na(Oxygen) & OxygenQ != 3 & OxygenQ != 4) | (!is.na(HydrogenSulphide) & HydrogenSulphideQ != 3 & HydrogenSulphideQ != 4), .(DataSourceID, SeaRegionID, ClusterID, Latitude, Longitude, Sounding, Bathymetric, Year, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide)]
 
-# Check number of samples per searegion
-# DO_samples_summer %>% group_by(SeaRegionID) %>% summarize(timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfSamples = n())
+# Calculate Oxygen Hydrogen Sulphide in mg/l
+wk[, OxygenHydrogenSulphide := ifelse(!is.na(Oxygen), Oxygen / 0.7, # convert ml/l to mg/l
+                      ifelse(!is.na(HydrogenSulphide), -HydrogenSulphide * 0.022391 / 0.7, NA))] # convert umol/l to ml/l to mg/l
 
-DO_samples_summer <- DO_samples_summer %>%
-  mutate(Oxygen = case_when(
-    !is.na(Oxygen) ~ Oxygen/0.7,  # convert ml/l to mg/l  http://www.ices.dk/marine-data/tools/pages/unit-conversions.aspx <http://www.ices.dk/marine-data/tools/pages/unit-conversions.aspx> 
-    is.na(Oxygen) & !is.na(HydrogenSulphide) ~ -HydrogenSulphide*0.022391/0.7 # convert umol/l via ml/l to mg/l
-  )
-  ) %>% as.data.table()
+# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, Depth, AvgTemperature, AvgSalinity, AvgOxygenHydrogenSulphide, MinOxygenHydrogenSulphide, MaxOxygenHydrogenSulphide, CountSamples
+wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgOxygenHydrogenSulphide = mean(OxygenHydrogenSulphide), MinOxygenHydrogenSulphide = min(OxygenHydrogenSulphide), MaxOxygenHydrogenSulphide = max(OxygenHydrogenSulphide), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, Depth)]
 
-# Calculate 25 percentile per cluster and year
-Q25all <- DO_samples_summer[, .(q25 = quantile(.SD, 0.25, na.rm = T)), by = c("Year", "ClusterID", "SeaRegionID")]
+# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgOxygenHydrogenSulphide, MinMinOxygenHydrogenSulphide, MaxMaxOxygenHydrogenSulphide, SumCountSamples
+#wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide), MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year)]
+
+# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgOxygenHydrogenSulphide, MinMinMinOxygenHydrogenSulphide, MaxMaxMaxOxygenHydrogenSulphide, SumSumCountSamples
+#wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide), MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+
+# Calculate cluster 25 percentile --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year
+Q25all <- wk0[, .(q25 = quantile(.SD, 0.25, na.rm = TRUE)), .(SeaRegionID, ClusterID, Year)]
 
 # Calculate mean of lower quartile 
-mean25perc <- DO_samples_summer %>% 
+mean25perc <- wk0 %>% 
   left_join(Q25all) %>% 
-  filter(Oxygen <= q25) %>%
-  group_by(Year, ClusterID, SeaRegionID, UTM_E, UTM_N) %>%
-  summarize(AvgOxygen = mean(Oxygen),
-            AvgLatitude = mean(latitude_center),
-            AvgLongitude = mean(longitude_center),
-            AvgSounding = mean(Sounding),
+  filter(AvgOxygenHydrogenSulphide <= q25) %>%
+  group_by(SeaRegionID, ClusterID, Year) %>%
+  summarize(AvgOxygen = mean(AvgOxygenHydrogenSulphide),
+            AvgLatitude = mean(Latitude),
+            AvgLongitude = mean(Longitude),
+            AvgBathymetric = mean(Bathymetric),
             AvgDepth = mean(Depth)) %>%
   as.data.table()
 
-# check value distribution
-# hist(mean25perc[AvgOxygen < 0, list(AvgOxygen)]$AvgOxygen)
+fwrite(mean25perc, file.path("Output", "Oxygen_status.csv"))
 
-fwrite(mean25perc, "output/status_dissolvedoxygen.csv")
-
-# Check number of clusters selected per searegion
-# mean25perc %>% group_by(SeaRegionID) %>% summarize( timeRange = paste(range(Year)[1], "-", range(Year)[2]), nrOfClusters = n())
-
-# plot average status for last 5 years 
-wk21 <- mean25perc[Year > 2012, list(Oxygen = mean(AvgOxygen)), list(ClusterID, AvgLongitude, AvgLatitude)]
+# Plot average status for last 5 years 
+wk21 <- mean25perc[Year > assessmentYear - 5 & Year <= assessmentYear, .(Oxygen = mean(AvgOxygen), AvgLongitude = mean(AvgLongitude), AvgLatitude = mean(AvgLatitude)), .(ClusterID)]
 
 plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                parameterValue = "Oxygen", 
                invJet = T, 
                limits = "auto")
 saveEuropeStatusMap(parameter = "Oxygen")
-
 
 # trend analysis using Kendall test for each oxygen class
 classes <- c("O2_4 mg_l", "4_O2_6 mg_l", "O2_6 mg_l")
@@ -725,4 +648,3 @@ plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Oxygen"
 saveEuropeTrendMap(paste("Oxygen", classes[cc]))
 
 }
-

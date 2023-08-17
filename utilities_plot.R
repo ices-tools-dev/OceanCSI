@@ -22,17 +22,14 @@ searegions <- sf::st_read(searegionFile)
 bboxEurope <- st_bbox(searegions)
 
 # create bounding boxes for the regions
-# bboxRegions = data.frame(  ID = as.integer(),  xmin = as.numeric(),  xmax = as.numeric(),  ymin = as.numeric(),  ymax = as.numeric())
-# for(ii in seq(1:length(rownames(searegions)))){
-#   temp = data.frame(ID = searegions$ID[ii], name = searegions$SubRegion[ii], xmin = st_bbox(searegions[ii,])[1], xmax = st_bbox(searegions[ii,])[2], ymin = st_bbox(searegions[ii,])[3], ymax =  st_bbox(searegions[ii,])[4], stringsAsFactors = F
-#   )
-#   bboxRegions = rbind(bboxRegions, temp)
-# }
-# rownames(bboxRegions) <- NULL
-# bboxRegions$name <- as.character(bboxRegions$name )
-#
-
-bboxRegions <- read.csv2("bboxregions.csv", header = T, stringsAsFactors = F)
+bboxRegions = data.frame(  ID = as.integer(),  xmin = as.numeric(),  xmax = as.numeric(),  ymin = as.numeric(),  ymax = as.numeric())
+for(ii in seq(1:length(rownames(searegions)))){
+  temp = data.frame(ID = searegions$ID[ii], name = searegions$SubRegion[ii], xmin = st_bbox(searegions[ii,])[1], xmax = st_bbox(searegions[ii,])[2], ymin = st_bbox(searegions[ii,])[3], ymax =  st_bbox(searegions[ii,])[4], stringsAsFactors = F
+  )
+  bboxRegions = rbind(bboxRegions, temp)
+}
+rownames(bboxRegions) <- NULL
+bboxRegions$name <- as.character(bboxRegions$name )
 
 
 data("countriesLow")
@@ -68,7 +65,7 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
   statusplot + geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "darkgrey", color = "black") +
     geom_point(shape = 21, aes_string(fill = parameterValue), color = "white", size = 2) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
-    ggtitle(paste("Status of ", parameterValue, "2013 - 2017")) +
+    ggtitle(paste("Status of", parameterValue, assessmentYear - 5 + 1, "-", assessmentYear)) +
     scale_fill_gradientn(colours  = colorscale(7), guide = "colourbar", limits = limits) +
     theme_bw() + 
     theme(
@@ -80,13 +77,11 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
       axis.ticks = element_blank())
 }
 
-
 # Around ggsave for saving status parameter plots 
 saveEuropeStatusMap <- function(parameter, width = 10, height = 8) {
   ggsave(filename = file.path("output", paste0(parameter, "_status", ".png")),
          height = height, width = width)
 }
-
 
 plotKendallClasses <- function(plotdata, parameterValue){
   
@@ -106,7 +101,8 @@ plotKendallClasses <- function(plotdata, parameterValue){
     geom_point(data = plotdata, aes(AvgLongitude, AvgLatitude, fill = trend, group = ClusterID), shape = 21, color = "white", size = 1.7) +
     scale_fill_manual(values = cols) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
-    ggtitle(paste("Trends in ", parameterValue, prettyClassNames, "1990 - 2017")) +
+    #ggtitle(paste("Trends in", parameterValue, prettyClassNames, "1980 -", assessmentYear)) +
+    ggtitle(paste("Trends in", parameterValue, "1980 -", assessmentYear)) +
     theme_bw() + 
     theme(
       text = element_text(size = 15),
@@ -163,7 +159,7 @@ plotRegionStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, 
     statusplot + geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "darkgrey", color = "black") +
       geom_point(shape = 21, aes_string(fill = parameterValue), color = "white", size = 3) +
       coord_quickmap(xlim = xxlim, ylim = yylim) +
-      ggtitle(paste("Status of ", parameterValue, "2013 - 2017")) +
+      ggtitle(paste("Status of ", parameterValue, "2017 - 2021")) +
       scale_fill_gradientn(colours  = colorscale(7), guide = "colourbar", limits = limits) +
       theme_bw() + 
       theme(

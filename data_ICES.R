@@ -1,19 +1,17 @@
 library(data.table)
-library(sf)
-library(tidyverse)
 
-# Download ICES data from ICES Data Portal at https://data.ices.dk ------------------
+source("utilities_searegion.R")
+
+# Download ICES data from ICES Data Portal at https://data.ices.dk -------------
 
 # Read and Merge station samples -----------------------------------------------
 
-# ICES Bottle and low resolution CTD data --> 22,456,075 --> 16,204,690 station samples
-stationSamplesBOT <- fread(input = "Data/ICES_StationSamples_BOT_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
-stationSamplesBOT[, Type := "B"]
-stationSamplesBOT[, DataSourceID := 1]
+# ICES Bottle and low resolution CTD data --> 16,204,690 station samples
+stationSamplesBOT <- fread(input = "Input/ICES_StationSamples_BOT_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesBOT <- stationSamplesBOT[Year >= 1980, .(
   Cruise,
   Station,
-  Type,
+  Type = "B",
   Year,
   Month,
   Day,
@@ -22,7 +20,7 @@ stationSamplesBOT <- stationSamplesBOT[Year >= 1980, .(
   Longitude..degrees_east.,
   Latitude..degrees_north.,
   Bot..Depth..m.,
-  DataSourceID,
+  DataSourceID = 1,
   Depth..m.,
   QV.ODV.Depth..m.,
   Temperature..degC.,
@@ -43,18 +41,18 @@ stationSamplesBOT <- stationSamplesBOT[Year >= 1980, .(
   QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
   Total.Nitrogen..N...umol.l.,
   QV.ODV.Total.Nitrogen..N...umol.l.,
+  Hydrogen.Sulphide..H2S.S...umol.l.,
+  QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
   Chlorophyll.a..ug.l.,
   QV.ODV.Chlorophyll.a..ug.l.
   )]
 
-# ICES CTD data --> 127,425,271 station samples
-stationSamplesCTD <- fread(input = "Data/ICES_StationSamples_CTD_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
-stationSamplesCTD[, Type := "C"]
-stationSamplesCTD[, DataSourceID := 2]
+# ICES high resolution CTD data --> 123,421,195 station samples
+stationSamplesCTD <- fread(input = "Input/ICES_StationSamples_CTD_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesCTD <- stationSamplesCTD[Year >= 1980, .(
   Cruise,
   Station,
-  Type,
+  Type = "C",
   Year,
   Month,
   Day,
@@ -63,7 +61,7 @@ stationSamplesCTD <- stationSamplesCTD[Year >= 1980, .(
   Longitude..degrees_east.,
   Latitude..degrees_north.,
   Bot..Depth..m.,
-  DataSourceID,
+  DataSourceID = 2,
   Depth..m.,
   QV.ODV.Depth..m.,
   Temperature..degC.,
@@ -75,13 +73,11 @@ stationSamplesCTD <- stationSamplesCTD[Year >= 1980, .(
 )]
 
 # ICES Pump data --> 3,000,751 station samples
-stationSamplesPMP <- fread(input = "Data/ICES_StationSamples_PMP_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
-stationSamplesPMP[, Type := "P"]
-stationSamplesPMP[, DataSourceID := 3]
+stationSamplesPMP <- fread(input = "Input/ICES_StationSamples_PMP_2023-06-09.txt.gz", sep = "\t", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesPMP <- stationSamplesPMP[Year >= 1980, .(
   Cruise,
   Station,
-  Type,
+  Type = "P",
   Year,
   Month,
   Day,
@@ -90,7 +86,7 @@ stationSamplesPMP <- stationSamplesPMP[Year >= 1980, .(
   Longitude..degrees_east.,
   Latitude..degrees_north.,
   Bot..Depth..m.,
-  DataSourceID,
+  DataSourceID = 3,
   Depth..m.,
   QV.ODV.Depth..m.,
   Temperature..degC.,
@@ -115,60 +111,28 @@ stationSamplesPMP <- stationSamplesPMP[Year >= 1980, .(
   QV.ODV.Chlorophyll.a..ug.l.
 )]
 
-# Combined data tables --> 152,882,097 station samples
+# Combined data tables --> 142,626,636 station samples
 stationSamples <- rbindlist(list(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP), use.names = TRUE, fill = TRUE)
 
-# Remove original data tables
+# Free memory
 rm(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP)
 
-# Assign station and sample IDs ------------------------------------------------
+# Extract unique locations i.e. longitude/latitude pairs --> 3,303,893  locations
+locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
-# Unique stations by natural key --> 5,099,899 staions
-#uniqueN(stationSamples, by = c("Cruise", "Station", "Type", "Year", "Month", "Day", "Hour", "Minute", "Longitude..degrees_east.", "Latitude..degrees_north.", "Bot..Depth..m.", "DataSourceID"))
+# Classify locations into sea regions --> 2,890,431 locations
+locations <- classify_locations_into_searegions(locations)
 
-# Assign station ID by natural key
-#stationSamples[, StationID := .GRP, by = .(Cruise, Station, Type, Year, Month, Day, Hour, Minute, Longitude..degrees_east., Latitude..degrees_north., Bot..Depth..m., DataSourceID)]
+# Merge locations incl. sea regions back into station samples - getting rid of station samples not classified --> 44,893,836 station samples
+stationSamples <- locations[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.), nomatch = 0]
 
-# Assign sample ID by natural key
-#stationSamples[, SampleID := .GRP, by = .(Cruise, Station, Type, Year, Month, Day, Hour, Minute, Longitude..degrees_east., Latitude..degrees_north., Bot..Depth..m., DataSourceID, Depth..m.)]
+# Output station samples
+#fwrite(stationSamples[Type == 'B'], file.path("Data", "StationSamples_ICES_BOT.csv.gz"))
+#fwrite(stationSamples[Type == 'C'], file.path("Data", "StationSamples_ICES_CTD.csv.gz"))
+#fwrite(stationSamples[Type == 'P'], file.path("Data", "StationSamples_ICES_PMP.csv.gz"))
+fwrite(stationSamples, file.path("Data", "StationSamples_ICES.csv.gz"))
 
-# Classify station samples into sea regions ------------------------------------
+# Free memory
+rm(locations, stationSamples, classify_locations_into_searegions)
 
-# Read sea regions
-sea_regions <- st_read("Input/EEA_SeaRegion_20180831.shp")
-
-# Identify invalid geometries
-st_is_valid(sea_regions)
-
-# Make invalid geometries valid
-sea_regions <- st_make_valid(sea_regions)
-
-# Extract unique positions i.e. longitude/latitude pairs --> 3,561,725 positions
-positions <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
-
-# Make positions spatial keeping original longitude/latitude
-positions <- st_as_sf(positions, coords = c("Longitude..degrees_east.", "Latitude..degrees_north."), remove = FALSE, crs = 4326)
-
-# Classify positions into sea regions
-positions$SeaRegionID <- st_intersects(positions, sea_regions) %>% as.numeric()
-
-# Delete positions not classified --> 2,987,000 positions
-positions <- na.omit(positions)
-
-# Remove spatial column and make into data table
-positions <- st_set_geometry(positions, NULL) %>% as.data.table()
-
-# Merge positions i.e. sea regions back into station samples - getting rid of station samples not classified into assessment units --> 48,593,364 station samples
-stationSamples <- positions[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.), nomatch = 0]
-
-# Remove sea regions and positions
-rm(sea_regions, positions)
-
-# Output station samples mapped to assessment units for contracting parties to check i.e. acceptance level 1
-#fwrite(stationSamples[Type == 'B'], file.path("Output", "ICES_StationSamples_BOT.csv"))
-#fwrite(stationSamples[Type == 'C'], file.path("Output", "ICES_StationSamples_CTD.csv"))
-#fwrite(stationSamples[Type == 'P'], file.path("Output", "ICES_StationSamples_PMP.csv"))
-fwrite(stationSamples, file.path("Output", "ICES_StationSamples.csv"))
-
-# To Do
-# Could possible create a merged dataset reduced to standard depths as done in IOF/WOD
+# To Do - Could possible create a merged dataset reduced to standard depths as done in IOF/WOD

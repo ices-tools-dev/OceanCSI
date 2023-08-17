@@ -5,7 +5,7 @@ library(ggplot2)
 # MSFD Marine regions and subregions
 # https://dd.eionet.europa.eu/vocabulary/msfd/regions/view
 # https://github.com/ices-taf/eea-topic-centre-wise6-dataflow/issues/2
-unitsFile <- "Data/MSFD_Publication_20181129_incl_WISE6_units.gdb"
+unitsFile <- "Input/MSFD_Publication_20181129_incl_WISE6_units.gdb"
 
 st_layers(unitsFile)
 
