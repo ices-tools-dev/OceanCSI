@@ -1,6 +1,6 @@
 library(sf)
 
-classify_locations_into_clusters <- function(locations) {
+classify_locations_into_clusters <- function(locations,inland_buffer_dist_km=5) {
   # Read coastline
   coastline <- st_read("Input/Country_Europe_Extended.shp")
   
@@ -19,10 +19,16 @@ classify_locations_into_clusters <- function(locations) {
   # Make 20km buffer
   coastline_Within20km <- sf::st_buffer(coastline, 20000)
   
+  # Make negative buffer, default 5km
+  # we will exclude points inside this buffer because they are "on land"
+  inland_buffer_dist <- inland_buffer_dist_km * -1000
+  coastline_inland <- sf::st_buffer(coastline, inland_buffer_dist)
+  
   # Transform projection into WGS84
   #coastline <- sf::st_transform(coastline, crs = 4326)
   #coastline_Within1km <- sf::st_transform(coastline_Within1km, crs = 4326)
   coastline_Within20km <- sf::st_transform(coastline_Within20km, crs = 4326)
+  coastline_inland <- sf::st_transform(coastline_inland, crs = 4326)
   
   # Make locations spatial keeping original longitude/latitude
   locations <- st_as_sf(locations, coords = c("Longitude..degrees_east.", "Latitude..degrees_north."), remove = FALSE, crs = 4326)
@@ -36,8 +42,23 @@ classify_locations_into_clusters <- function(locations) {
   # Classify stations into within 20km from land
   locations$Within20km <- apply(st_intersects(locations, coastline_Within20km, sparse = TRUE), 1, any)
 
+  # Classify stations within the 5km from coastline negative buffer
+  # we consider these "inland" but they can also be in rivers, lakes
+  # e.g. this catches the point 51.2800N 4.3300E which is located right in the middle of Antwerp Harbour  
+  locations$inland <- apply(st_intersects(locations, coastline_inland, sparse = TRUE), 1, any)
+  
+  # rename the "inland" column to include the buffer distance used
+  col_name_inland <- paste0("inland",inland_buffer_dist_km,"km")
+  names(locations)[names(locations)=="inland"] <- col_name_inland
+  
   # Remove spatial column in order to merge station samples
   locations <- sf::st_set_geometry(locations, NULL)
+  
+  # exclude the "inland" points from the cluster analysis 
+  # we will add them back later. They will have NA for ClusterID 
+  # both the inland column and the NA value for ClusterID indicate that points are "inland"
+  locations_inland <- locations[get(col_name_inland)==TRUE,] 
+  locations <- locations[get(col_name_inland)==FALSE,]
   
   # Classify stations using square assignment
   #
@@ -56,6 +77,8 @@ classify_locations_into_clusters <- function(locations) {
   locations$longitude_center <- locations$iX/locations$rK
   comb <- with(locations, paste(iX, iY))
   locations$ClusterID <- match(comb, unique(comb))
+  
+  locations <- rbindlist(list(locations, locations_inland), fill=T)
   
   return(locations)
 }

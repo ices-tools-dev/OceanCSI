@@ -7,6 +7,10 @@ assessmentYear <- 2021
 #load(file.path("Output", "StationSamples.RData"))
 stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
 
+# Sampling points which were found to be "on land" using a negative buffer do not have a ClusterID
+# exclude them from the further analysis
+stationSamples <- stationSamples[!is.na(ClusterID),]
+
 stationSamples <- stationSamples[, .(
   DataSourceID,
   SeaRegionID,
