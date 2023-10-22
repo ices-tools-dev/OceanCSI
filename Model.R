@@ -45,7 +45,16 @@ stationSamples <- stationSamples[, .(
   HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
   Chlorophyll = Chlorophyll.a..ug.l.,
   ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
-  )]
+)]
+
+# Station extreme value limits (nutrients and chl)
+quantile_limit <- 0.999 # 99.9% percentile
+limit_values <- stationSamples[Year>2006 & Depth <= 10 , lapply(.SD, function(x) quantile(x, quantile_limit, na.rm=T)), 
+                               .SDcols = c(18,20,22,24,26,28,32),]
+
+limit_values %>%
+  tidyr::pivot_longer(cols=1:ncol(limit_values), names_to="Parameter", values_to="limit_value")
+
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
@@ -61,6 +70,9 @@ stationSamplesSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))
 
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate
 wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate) & (NitrateQ != 4 & NitrateQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate)]
+
+# Exclude values exceeding limit
+wk <- wk[Nitrate < limit_values$Nitrate[1], ]
 
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrate = mean(Nitrate), MinNitrate = min(Nitrate), MaxNitrate = max(Nitrate), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
@@ -126,6 +138,9 @@ saveEuropeTrendMap("Nitrate")
 
 # Filter stations rows and columns --> ClusterID, StationID, Year, Depth, Temperature, Salinity, Nitrite
 wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrite) & (NitriteQ != 4 & NitriteQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrite)]
+
+# Exclude values exceeding limit
+wk <- wk[Nitrite < limit_values$Nitrite[1], ]
 
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgNitrate, MinNitrate, MaxNitrate, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgNitrite = mean(Nitrite), MinNitrite = min(Nitrite), MaxNitrite = max(Nitrite), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
@@ -193,6 +208,9 @@ wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Mon
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgAmmonium, MinAmmonium, MaxAmmonium, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgAmmonium = mean(Ammonium), MinAmmonium = min(Ammonium), MaxAmmonium = max(Ammonium), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
+# Exclude values exceeding limit
+wk <- wk[Ammonium < limit_values$Ammonium[1], ]
+
 # Calculate station annual average --> SeaRegionID, ClusterID, StationID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgAmmonium, MinMinAmmonium, MaxMaxAmmonium, CountSamples
 wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgAmmonium = mean(AvgAmmonium), MinAmmonium = min(MinAmmonium), MaxAmmonium = max(MaxAmmonium), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
 
@@ -253,6 +271,11 @@ wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Mon
 coalesce <- function(x) if (all(is.na(x))) NA else sum(x, na.rm = TRUE)
 wk$DIN <- apply(wk[, c("Nitrate", "Nitrite", "Ammonium")], 1, coalesce)
 
+# Exclude values exceeding limit
+limit_value_DIN <- quantile(wk$DIN, quantile_limit, na.rm=T)
+wk <- wk[DIN < limit_value_DIN, ]
+
+
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgDIN = mean(DIN), MinDIN = min(DIN), MaxDIN = max(DIN), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
@@ -311,6 +334,9 @@ saveEuropeTrendMap("DIN")
 
 # Filter stations rows and columns --> SeaRegionID, ClusterID, StationID, Year, Depth, Temperature, Salinity, TotalNitrogen
 wk <- stationSamples[Depth <= 10 & !is.na(TotalNitrogen) & (TotalNitrogenQ != 4 & TotalNitrogenQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalNitrogen)]
+
+# Exclude values exceeding limit
+wk <- wk[TotalNitrogen < limit_values$TotalNitrogen[1], ]
 
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgTotalNitrogen, MinTotalNitrogen, MaxTotalNitrogen, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalNitrogen = mean(TotalNitrogen), MinTotalNitrogen = min(TotalNitrogen), MaxTotalNitrogen = max(TotalNitrogen), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
@@ -373,6 +399,9 @@ saveEuropeTrendMap("TotalNitrogen")
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, Phosphate
 wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Phosphate) & (PhosphateQ != 4 & PhosphateQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Phosphate)]
 
+# Exclude values exceeding limit
+wk <- wk[Phosphate < limit_values$Phosphate[1], ]
+
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgPhosphate, MinPhosphate, MaxPhosphate, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgPhosphate = mean(Phosphate), MinPhosphate = min(Phosphate), MaxPhosphate = max(Phosphate), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
@@ -431,6 +460,9 @@ saveEuropeTrendMap("Phosphate")
 
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, TotalPhosphorus
 wk <- stationSamples[Depth <= 10 & !is.na(TotalPhosphorus) & (TotalPhosphorusQ != 4 & TotalPhosphorusQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, TotalPhosphorus)]
+
+# Exclude values exceeding limit
+wk <- wk[TotalPhosphorus < limit_values$TotalPhosphorus[1], ]
 
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgTotalPhosphorus, MinTotalPhosphorus, MaxTotalPhosphorus, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgTotalPhosphorus = mean(TotalPhosphorus), MinTotalPhosphorus = min(TotalPhosphorus), MaxTotalPhosphorus = max(TotalPhosphorus), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
@@ -493,6 +525,9 @@ saveEuropeTrendMap("TotalPhosphorus")
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll
 wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Latitude > 59, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(Chlorophyll) & (ChlorophyllQ != 4 & ChlorophyllQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll)]
 
+# Exclude values exceeding limit
+wk <- wk[Chlorophyll < limit_values$Chlorophyll[1], ]
+
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgChlorophyll, MinChlorophyll, MaxChlorophyll, CountSamples
 wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgChlorophyll = mean(Chlorophyll), MinChlorophyll = min(Chlorophyll), MaxChlorophyll = max(Chlorophyll), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
 
@@ -515,7 +550,7 @@ saveEuropeStatusMap(parameter = "Chlorophyll")
 # Plot chlorophyll values for all regions separately
 regionsToPlot <- unique(wk21$SeaRegionID)
 for(ii in seq(1:length(regionsToPlot))){
-    plotRegionStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+  plotRegionStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
                        parameterValue = "Chlorophyll", 
                        invJet = F, 
                        limits = "auto",
