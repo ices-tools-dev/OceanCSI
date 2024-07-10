@@ -16,16 +16,16 @@ monitoring_sites <- fread("Input/Waterbase_v2022_1_S_WISE6_SpatialObject_Derived
 # Remove empty monitoringSiteIdentifier, lat or lon --> 55943
 monitoring_sites <- monitoring_sites[!monitoringSiteIdentifier == "" & !is.na(lat) & !is.na(lon)]
 
-# Calculate unique monitoring_sites --> 55820
+# Calculate unique monitoring_sites --> 55,820
 uniqueN(monitoring_sites[, .(monitoringSiteIdentifier)])
 
 # Remove duplicates and select fields needed --> 55820
 monitoring_sites <- monitoring_sites[!duplicated(monitoring_sites, by = c("monitoringSiteIdentifier")), .(monitoringSiteIdentifier, lon, lat)]
 
-# Read observations --> 61793906 observations
-observations <- fread("Data/Waterbase_v2022_1_T_WISE6_DisaggregatedData.csv.gz")
+# Read observations --> 61,793,906 observations
+observations <- fread("Input/Waterbase_v2022_1_T_WISE6_DisaggregatedData.csv.gz")
 
-# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196202 observations
+# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196,202 observations
 observations <- observations[
     observedPropertyDeterminandLabel %in% c('Water temperature','Salinity','Dissolved oxygen','Phosphate','Total phosphorus','Nitrate','Nitrite','Ammonium','Total nitrogen','Chlorophyll a')
   &
@@ -41,7 +41,7 @@ observations <- observations[
 # View observations parameter units
 observations[, .N, by = .(observedPropertyDeterminandLabel, resultUom)]
 
-# Dcast into samples --> 40801 samples 
+# Dcast into samples --> 40,801 samples 
 samples <- dcast(observations, monitoringSiteIdentifier + phenomenonTimeSamplingDate + parameterSampleDepth ~ observedPropertyDeterminandLabel, value.var = "resultObservedValue", fun.aggregate = mean)
 
 # Merge stations i.e. monitoring sites (latitude longitude) into samples

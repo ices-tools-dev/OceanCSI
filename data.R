@@ -4,13 +4,13 @@ stationSamples_ICES <- fread(input = "Data/StationSamples_ICES.csv.gz")
 stationSamples_EMODNET <- fread(input = "Data/StationSamples_EMODNET.csv.gz")
 stationSamples_EEA <- fread(input = "Data/StationSamples_EEA.csv.gz")
 
-# Combined data tables --> 82,904,031 station samples
+# Combined data tables --> 88,516,449 station samples
 stationSamples <- rbindlist(list(stationSamples_ICES, stationSamples_EMODNET, stationSamples_EEA), use.names = TRUE, fill = TRUE)
 
 # Free memory
 rm(stationSamples_ICES, stationSamples_EMODNET, stationSamples_EEA)
 
-# Extract unique locations i.e. longitude/latitude pairs --> 3,404,235 locations
+# Extract unique locations i.e. longitude/latitude pairs --> 3,637,548 locations
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
 # Classify locations into clusters
