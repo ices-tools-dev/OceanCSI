@@ -159,7 +159,7 @@ plotRegionStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, 
     statusplot + geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "darkgrey", color = "black") +
       geom_point(shape = 21, aes_string(fill = parameterValue), color = "white", size = 3) +
       coord_quickmap(xlim = xxlim, ylim = yylim) +
-      ggtitle(paste("Status of ", parameterValue, "2017 - 2021")) +
+      ggtitle(paste("Status of ", parameterValue, assessmentYear - 5 + 1, "-", assessmentYear)) +
       scale_fill_gradientn(colours  = colorscale(7), guide = "colourbar", limits = limits) +
       theme_bw() + 
       theme(
@@ -169,8 +169,4 @@ plotRegionStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, 
         legend.position = "right",
         axis.line = element_blank(),
         axis.ticks = element_blank())
-
-    
     }
-
-

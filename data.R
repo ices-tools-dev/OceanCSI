@@ -25,7 +25,7 @@ locations <- unique(stationSamples[(Month >= 7 & Month <= 10) & ((!is.na(Dissolv
 
 # Classify locations used by the dissolved oxygen indicator into bathymetric
 source("utilities_bathymetric.R")
-locations <- classify_locations_into_bathymetric(locations)
+locations <- as.data.table(classify_locations_into_bathymetric(locations))
 
 # Merge locations incl. bathymetric back into station samples
 stationSamples <- locations[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.)]

@@ -2,7 +2,7 @@ library(data.table)
 
 source("utilities_plot.R")
 
-assessmentYear <- 2021
+assessmentYear <- 2023
 
 #load(file.path("Output", "StationSamples.RData"))
 stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
@@ -652,3 +652,4 @@ plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Oxygen"
 saveEuropeTrendMap(paste("Oxygen", classes[cc]))
 
 }
+
