@@ -1,47 +1,114 @@
 library(data.table)
+library(readr)
+library(dplyr)
 
 source("utilities_plot.R")
 
 assessmentYear <- 2023
-
+getDTthreads()
+setDTthreads(4)
+rm(stationSamples)
 #load(file.path("Output", "StationSamples.RData"))
-stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
+#problems with temp dir, see
+#https://www.linkedin.com/pulse/trivial-fix-after-3-hours-debugging-kirill-tsyganov/
 
-stationSamples <- stationSamples[, .(
-  DataSourceID,
-  SeaRegionID,
-  ClusterID,  
-  Latitude = Latitude..degrees_north.,
-  Longitude = Longitude..degrees_east.,
-  Year,
-  Month,
-  Sounding = Bot..Depth..m.,
-  Bathymetric = BathymetricAvg, 
-  Depth = Depth..m.,
-  DepthQ = QV.ODV.Depth..m.,
-  Temperature = Temperature..degC.,
-  TemperatureQ = QV.ODV.Temperature..degC.,
-  Salinity = Practical.Salinity..dmnless.,
-  SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
-  Oxygen = Dissolved.Oxygen..ml.l.,
-  OxygenQ = QV.ODV.Dissolved.Oxygen..ml.l.,
-  Phosphate = Phosphate.Phosphorus..PO4.P...umol.l.,
-  PhosphateQ = QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l.,
-  TotalPhosphorus = Total.Phosphorus..P...umol.l.,
-  TotalPhosphorusQ = QV.ODV.Total.Phosphorus..P...umol.l.,
-  Nitrate = Nitrate.Nitrogen..NO3.N...umol.l.,
-  NitrateQ = QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l.,
-  Nitrite = Nitrite.Nitrogen..NO2.N...umol.l.,
-  NitriteQ = QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l.,
-  Ammonium = Ammonium.Nitrogen..NH4.N...umol.l.,
-  AmmoniumQ = QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
-  TotalNitrogen = Total.Nitrogen..N...umol.l.,
-  TotalNitrogenQ = QV.ODV.Total.Nitrogen..N...umol.l.,
-  HydrogenSulphide = Hydrogen.Sulphide..H2S.S...umol.l.,
-  HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
-  Chlorophyll = Chlorophyll.a..ug.l.,
-  ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
-  )]
+# stationSamples <- fread(
+#   file.path("Data", "StationSamples.csv.gz"), 
+#   nThread = 4, 
+#   sep = ",", 
+#   dec = ".", 
+#   tmpdir = "c:\\temp"
+#   )
+
+# f <- function(x, pos) subset(x, !is.na(Dissolved.Oxygen..ml.l.) | !is.na(Hydrogen.Sulphide..H2S.S...umol.l.))
+# require(dplyr)
+# 
+# f <- function(x, pos) {
+#   x %>% 
+#     filter(!is.na(Dissolved.Oxygen..ml.l.)) %>% 
+#     filter(!is.na(Hydrogen.Sulphide..H2S.S...umol.l.)) %>%
+#     select(
+#       DataSourceID,
+#       SeaRegionID,
+#       ClusterID,  
+#       Latitude = Latitude..degrees_north.,
+#       Longitude = Longitude..degrees_east.,
+#       Year,
+#       Month,
+#       Sounding = Bot..Depth..m.,
+#       Bathymetric = BathymetricAvg, 
+#       Depth = Depth..m.,
+#       DepthQ = QV.ODV.Depth..m.,
+#       Temperature = Temperature..degC.,
+#       TemperatureQ = QV.ODV.Temperature..degC.,
+#       Salinity = Practical.Salinity..dmnless.,
+#       SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
+#       Oxygen = Dissolved.Oxygen..ml.l.,
+#       OxygenQ = QV.ODV.Dissolved.Oxygen..ml.l.,
+#       HydrogenSulphide = Hydrogen.Sulphide..H2S.S...umol.l.,
+#       HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.
+#     )
+# }
+# 
+# 
+# stationSamples <- readr::read_csv_chunked(file.path("Data", "StationSamples.csv.gz"), col_types = "nnnnnnlnnnnnnnncccnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnccc", chunk_size = 1e5, DataFrameCallback$new(f))
+# 
+# save(stationSamples, file = file.path("Output", "stationSamples_oxygen.RData")) 
+# 
+
+# stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"), nrows = 1000)
+
+stationSamples <- fread(
+  file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz")
+)
+
+require(leaflet)
+stationSamples %>%
+  sample_n(10000) %>%
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(radius = 1)
+
+# stationSamples <- stationSamples[, .(
+  # stationSamples <- stationSamples %>%
+  #   select(
+  #   DataSourceID,
+  # SeaRegionID,
+  # ClusterID,  
+  # Latitude = Latitude..degrees_north.,
+  # Longitude = Longitude..degrees_east.,
+  # Year,
+  # Month,
+  # Sounding = Bot..Depth..m.,
+  # Bathymetric = BathymetricAvg, 
+  # Depth = Depth..m.,
+  # DepthQ = QV.ODV.Depth..m.,
+  # Temperature = Temperature..degC.,
+  # TemperatureQ = QV.ODV.Temperature..degC.,
+  # Salinity = Practical.Salinity..dmnless.,
+  # SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
+  # Oxygen = Dissolved.Oxygen..ml.l.,
+  # OxygenQ = QV.ODV.Dissolved.Oxygen..ml.l.,
+  # Phosphate = Phosphate.Phosphorus..PO4.P...umol.l.,
+  # PhosphateQ = QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l.,
+  # TotalPhosphorus = Total.Phosphorus..P...umol.l.,
+  # TotalPhosphorusQ = QV.ODV.Total.Phosphorus..P...umol.l.,
+  # Nitrate = Nitrate.Nitrogen..NO3.N...umol.l.,
+  # NitrateQ = QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l.,
+  # Nitrite = Nitrite.Nitrogen..NO2.N...umol.l.,
+  # NitriteQ = QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l.,
+  # Ammonium = Ammonium.Nitrogen..NH4.N...umol.l.,
+  # AmmoniumQ = QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
+  # TotalNitrogen = Total.Nitrogen..N...umol.l.,
+  # TotalNitrogenQ = QV.ODV.Total.Nitrogen..N...umol.l.,
+  # HydrogenSulphide = Hydrogen.Sulphide..H2S.S...umol.l.,
+  # HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
+  # Chlorophyll = Chlorophyll.a..ug.l.,
+  # ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
+  #   )
+  # )]
+  
+stationSamples <- as.data.table(stationSamples)
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
@@ -72,6 +139,14 @@ fwrite(wk2, file.path("Output", "Nitrate_status.csv"))
 
 # Plot average status for last 5 years 
 wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Nitrate = mean(AvgNitrate), Longitude = mean(AvgLongitude), Latitude = mean(AvgLatitude)), list(ClusterID)]
+
+dim(wk21)
+wk21 %>%
+  leaflet::leaflet() %>%
+  leaflet::addTiles() %>%
+  leaflet::addCircleMarkers(lng = ~Longitude, lat = ~Latitude, radius = 1)
+
+
 
 plotStatusMaps(bboxEurope, data = wk21, xlong = "Longitude", ylat = "Latitude", 
                parameterValue = "Nitrate", 
