@@ -1,0 +1,547 @@
+---
+title: "assessment EEA indicators"
+author: "Paula Ramon"
+date: "2024-09-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, include=FALSE, results= "hide")
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+library(patchwork)
+library(data.table)
+
+```
+
+# ANALYSIS
+
+To do the EEA assessment for Marine Indicators first you need to receive the updated dataset from ICES (Hjalte palmer). The data comes from different data bases:
+
+-   ICES
+
+-   EMODNET
+
+-   WISE
+
+Once the data has been gathered (*usually in format StationSamples.csv.gz*), we need to make an analysis to get the trend and average for the marine indicators.
+
+To do so, and since the data file is usually gigantic, we run R in Jupyterhub. You can also find the data there.
+
+There are two R codes there ("*shared/common/PRO/EEA indicators/indicators_assessment*"), depending on what do we need we will use one or the other.
+
+-   Trend divided in 2 periods (pre and post 2000) : average_and_trends_2periods.R
+
+-   Trend divided in 4 periods (one decade each): average_and_trends_4periods.R
+
+Once the code has been ran, you do not need to keep working in jupyterhub, you can work on your desktop.
+
+After this process the output should be:
+
+-   Data in table format for avg and trends
+
+-   Maps for avg and trends.
+
+# BARCHARTS
+
+Next step is to prepare the bar plots for the time series.
+
+To make it easier, I made a function to get the barcharts. It has to be applied to all datasets (it varies depending on the periods the data has been divided into.)
+
+```{r}
+folder<-"C:/Data/Repositories/ETC BE/OceanCSI-Marine_Indicators/"
+source(paste0(folder,"assessment 2024/indicator_functions.R"))
+```
+
+Choose which EEA grid are you using
+
+```{r}
+grid <- st_read(paste0(folder,"../assessment grid 100+20/subregions/grid100_10-subregions_included.shp"))%>%select(GRIDCODE,subregionN)
+```
+
+```{r}
+grid <- st_read(paste0(folder,"../assessment grid 10/europe_10km_subregions.shp"))%>%rename("GRIDCODE"="CellCode")%>%select(GRIDCODE,subregionN)
+
+```
+
+## TWO PERIODS (PRE AND POST 2000)
+
+### DIN
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/din/2 periods/")
+
+filelist<-list.files(data_folder, pattern="2per_")
+
+filelist<-list.files(data_folder, pattern="10x10.csv")
+```
+
+Visualization:
+
+```{r}
+plot_list <-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*din_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+
+
+write.table(df,file=paste0(saving_folder,"din/DIN_trend_data_",period,".csv"),sep=";",row.names = F)
+
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+
+}
+
+p<-plot_list[["region_plot_PRE2000"]]+plot_list[["region_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIN concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"din/DIN_trend_barchart_2per.png"),p,height=8, width=20)
+
+
+p1<-plot_list[["europe_plot_PRE2000"]]+plot_list[["europe_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIN concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"din/DIN_trend_barchart_EU_2per.png"),p1,height=13, width=20)
+
+rm(plot_list,p,p1)
+```
+
+### DIP
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/dip/2 periods/")
+
+filelist<-list.files(data_folder, pattern="2per_")
+
+#filelist<-list.files(data_folder, pattern="10x10.csv")
+```
+
+Visualization:
+
+```{r}
+plot_list<-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*dip_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+
+
+write.table(df, file=paste0(saving_folder,"dip/DIP_trend_data_",period,".csv"),sep=";",row.names = F)
+
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+}
+p<-plot_list[["region_plot_PRE2000"]]+plot_list[["region_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIP concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"dip/DIP_trend_barchart_2per.png"),p,height=8, width=20)
+
+
+p1<-plot_list[["europe_plot_PRE2000"]]+plot_list[["europe_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIP concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"dip/DIP_trend_barchart_EU_2per.png"),p1,height=13, width=20)
+
+```
+
+### CHL-A
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/chl/2 periods/")
+
+filelist<-list.files(data_folder, pattern="2per_")
+#filelist<-list.files(data_folder, pattern="10x10.csv")
+
+```
+
+Visualization:
+
+```{r}
+plot_list<-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*chlorophyll_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+
+
+write.table(df,file=paste0(saving_folder,"chl/CHL_trend_data_",period,".csv"),sep=";",row.names = F)
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+}
+
+
+p<-plot_list[["region_plot_PRE2000"]]+plot_list[["region_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in CHL concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+
+ggsave(filename=paste0(saving_folder,"chl/CHL_trend_barchart_2per.png"),p,height=8, width=20)
+
+
+p1<-plot_list[["europe_plot_PRE2000"]]+plot_list[["europe_plot_POST2000"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in CHL concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"chl/CHL_trend_barchart_EU_2per.png"),p1,height=13, width=20)
+
+
+```
+
+## FOUR PERIODS (pre 1990, 1990-2000, 2000-2010, post 2010)
+
+### DIN
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/din/4 periods/")
+
+filelist<-list.files(data_folder, pattern="4per_")
+
+```
+
+Visualization:
+
+```{r}
+plot_list<-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*din_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+write.table(df, file=paste0(saving_folder,"din/DIN_trend_data_",period,".csv"),sep=";",row.names = F)
+
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+
+}
+p<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIN concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"din/DIN_trend_barchart_4per.png"),p,height=15, width=20)
+
+
+p1<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIN concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"din/DIN_trend_barchart_EU_4per.png"),p1,height=15, width=20)
+
+
+```
+
+### DIP
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/dip/4 periods/")
+
+filelist<-list.files(data_folder, pattern="4per_")
+
+```
+
+Visualization:
+
+```{r}
+plot_list<-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*dip_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+
+
+write.table(df, file=paste0(saving_folder,"dip/DIP_trend_data_",period,".csv"),sep=";",row.names = F)
+
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+
+}
+p<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIP concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"dip/DIP_trend_barchart_4per.png"),p,height=15, width=20)
+
+
+p1<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in DIP concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"dip/DIP_trend_barchart_EU_4per.png"),p1,height=15, width=20)
+
+```
+
+### CHL-A
+
+Read in the data:
+
+```{r}
+data_folder <- paste0(folder,"assessment 2024/output/chl/4 periods/")
+
+filelist<-list.files(data_folder, pattern="4per_")
+
+```
+
+Visualization:
+
+```{r}
+plot_list<-list()
+for (file in filelist){
+  df_param <- read.table(file.path(data_folder,file),sep=";",header=T)
+  period <- sub(".*chlorophyll_(.*?)_trend.*", "\\1", file)
+  period <- stringr::str_to_upper(period)
+  
+  #Preparation of data
+  df_paramx<-data_harmonization(df_param,grid,"subregionN")
+  saving_folder<- paste0(folder,"assessment 2024/output/")
+
+#Europe
+EU<-results_EU(df_paramx) 
+  EUx<-EU%>%select(Region, trend,n=n_each)
+  EU<-EU%>%select(-n_each)
+#Regional
+REG<-results_regional(df_paramx)
+
+rm(df_paramx,df_param)
+
+number_timeseries<-rbind(EUx,REG$general)
+percentage_trends<- rbind(EU,REG$res)
+general_to_plot<-rbind(EU,REG$final_results)
+
+#Organize the data
+percentage_wide <- spread(percentage_trends, trend, Percentage)
+colnames(percentage_wide)[3:5] <- paste0(colnames(percentage_wide)[3:5], "_pct")
+
+data_wide <- spread(number_timeseries,trend,n, fill=0)
+colnames(data_wide)[2:4] <- paste0(colnames(data_wide)[2:4], "_N_loc")
+
+
+
+df <-left_join(data_wide, percentage_wide, by="Region")
+df$Region<- factor(df$Region, levels=c("Baltic Sea",
+                                       "IBI and Celtic Sea",
+                                       "Mediterranean Sea",
+                                       "Greater North Sea",
+                                       "Black Sea",
+                                       "Macaronesia", 
+                                       "Europe"))
+df<-df%>%
+  arrange(factor(Region))
+
+
+write.table(df, file=paste0(saving_folder,"chl/CHL_trend_data_",period,".csv"),sep=";",row.names = F)
+
+#plots
+p <- plot_regions(general_to_plot, REG$res$n, title = paste0(period))
+
+p1 <- plot_europe(general_to_plot, EU$n, title = paste0(period))
+
+
+plot_list[[paste0("region_plot_", period)]] <- p
+plot_list[[paste0("europe_plot_", period)]] <- p1
+}
+p<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in CHL concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"chl/CHL_trend_barchart_4per.png"),p,height=15, width=20)
+
+
+p1<-plot_list[["region_plot_PRE1990"]]+plot_list[["region_plot_1990-2000"]]+plot_list[["region_plot_2000-2010"]]+plot_list[["region_plot_POST2010"]]+plot_layout(guides="collect",axes="collect_y")+plot_annotation(title="Trends in CHL concentrations in Europe' seas\n",theme = theme(plot.title = element_text(size="25",hjust=0.5,face="bold")))
+ggsave(filename=paste0(saving_folder,"chl/CHL_trend_barchart_EU_4per.png"),p1,height=15, width=20)
+```
