@@ -3,12 +3,12 @@ library(httr)
 
 # Function to get bathymetric depth from EMODnet bathymetry REST web service
 get.bathymetric <- function(x, y, host = "https://rest.emodnet-bathymetry.eu") {
-  query = paste0("/depth_sample?geom=POINT(", x, " ", y,")")
-  path = httr::modify_url(paste0(host, query))
+  query = paste0("/depth_sample?geom=POINT(", x, "%20", y,")")
+  path = paste0(host, query)
   r = GET(path)
   # to catch empty responses in a proper way
   if(is.numeric(content(r)$avg)){
-    return(paste(content(r)$min, content(r)$max, content(r)$avg, content(r)$stdev, sep = "_"))
+    return(content(r)$avg)
   } else {
     return(NA_real_)
   }

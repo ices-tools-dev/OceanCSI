@@ -3,17 +3,38 @@ library(readr)
 library(dplyr)
 require(leaflet)
 
+
 source("utilities_plot.R")
+source("utilities_bathymetric.R")
 
-assessmentYear <- 2023
+assessmentYear <- 2024
 setDTthreads(4)
-stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 
-stationSamples %>%
-  sample_n(10000) %>%
-leaflet() %>%
-  addTiles() %>%
-  addCircleMarkers(radius = 1)
+renewBathymetry = FALSE
+
+if(renewBathymetry){
+  
+  stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
+
+  # newBathymetric <- -unlist(map2(stationSamples$Longitude, stationSamples$Latitude, get.bathymetric))
+  
+  stationSamples <- stationSamples %>%
+    # sample_n(200) %>%
+    mutate(
+      Bathymetric2 = case_when(
+        !is.na(Bathymetric) ~ Bathymetric,
+        is.na(Bathymetric) ~ -unlist(map2(Longitude, Latitude, get.bathymetric)
+        )
+      )
+    )
+  save(stationSamples, file = "Data/stationSamples_correctedBathymetry")
+}
+
+load(file = "Data/stationSamples_correctedBathymetry")
+
+
+range(stationSamples$Oxygen, na.rm = T)
+stationSamples <- stationSamples[Oxygen != -999 & Oxygen != 999,,]
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
@@ -28,13 +49,14 @@ stationSamplesSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))
 
 # Filter stations rows and columns --> DataSourceID, SeaRegionID, ClusterID, Latitude, Longitude, Sounding, Bathymetric, Year, Depth, Temperature, Salinity, Oxygen, HydrogenSulphide
 wk <- stationSamples[
-  (Depth <= Bathymetric & case_when(
-    Bathymetric < 100 ~ Depth >= Bathymetric - 20, 
-    Bathymetric >= 100 ~ Depth >= Bathymetric - 50)
+  (Depth <= Bathymetric &                               # above sea floor
+     case_when(
+       Bathymetric < 100 ~ Depth >= Bathymetric - 20,   # max 20 m above sea floor
+       Bathymetric >= 100 ~ Depth >= Bathymetric - 50)  # max 50 m above sea floor
   ) & (
-    Month >= 7 & Month <= 10
+    Month >= 7 & Month <= 10                            # summer months
   ) & (
-    !is.na(Oxygen) & OxygenQ != 4 & OxygenQ != 8
+    !is.na(Oxygen) & OxygenQ != 4 & OxygenQ != 8        # one of O2 or H2S is not NA
   ) | (
     !is.na(HydrogenSulphide) & HydrogenSulphideQ != 3 & HydrogenSulphideQ != 4
   ),
@@ -49,38 +71,138 @@ wk <- stationSamples[
     Depth, 
     Oxygen, 
     HydrogenSulphide)
-  ]
+  ] %>%
+  # filter(
+  #   !(Oxygen >= 15 & Oxygen < 0) 
+  # ) %>%
+  as.data.table()
+
+summary(wk)
+# minimum oxygen = -7. Could be right if it implies H2S
+# maximum oxygen = 79. Can NOT be right
+
+View(wk[Oxygen > 10] %>% arrange(-Oxygen))
+
+# High O2 in very shallow places (couple of meters)
+
+wk[Oxygen > 10] %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(label = ~paste(Bathymetric, Depth, Oxygen))
+
+# Bathymetric is NA in some of the points. 
+
+graphics::hist(stationSamples$Oxygen, breaks = 1000)
+graphics::hist(wk$Oxygen, breaks = 1000)
+graphics::hist(wk$HydrogenSulphide, breaks = 1000)
+
+range(wk$Oxygen, na.rm = T)
+range(wk$HydrogenSulphide, na.rm = T)
 
 # Calculate Oxygen Hydrogen Sulphide in mg/l
-wk[, OxygenHydrogenSulphide := ifelse(
-  !is.na(Oxygen
-  ), 
+wk <- wk[, OxygenHydrogenSulphide := ifelse(
+  !is.na(Oxygen) & Oxygen != 0, 
   Oxygen / 0.7, # convert ml/l to mg/l
   ifelse(
-    !is.na(HydrogenSulphide), 
+    !is.na(HydrogenSulphide) | Oxygen == 0, 
     -HydrogenSulphide * 0.022391 / 0.7,  # convert umol/l to ml/l to mg/l 
     NA
   )
 )
 ]
 
+wk %>% 
+  sample_n(1000) %>%
+  arrange(Oxygen, HydrogenSulphide) %>%
+  mutate(x = row_number()) %>%
+  ggplot() +
+  geom_point(aes(x = x, y = Oxygen)) +
+  geom_point(aes(x = x, y = HydrogenSulphide))
+
+## Make map with percentiles (over whole population)
+
+length(which(is.na(wk$OxygenHydrogenSulphide)))
+
+qpal <- colorQuantile("YlGnBu", wk$OxygenHydrogenSulphide, probs = c(0, 0.05, 0.25, 1))
+
+wk %>%
+  # sample_n(100000) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(
+    radius = 4, 
+    stroke = F,
+    fillOpacity = 1, 
+    fillColor = ~qpal(OxygenHydrogenSulphide)) %>%
+  leaflet::addLegend(
+    "bottomright", 
+    pal = qpal, 
+    values = ~OxygenHydrogenSulphide,
+    title = "scale",
+    labFormat = labelFormat(),
+    opacity = 1
+  )
+
 # Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, Depth, AvgTemperature, AvgSalinity, AvgOxygenHydrogenSulphide, MinOxygenHydrogenSulphide, MaxOxygenHydrogenSulphide, CountSamples
 wk0 <- wk[
   , .(
-    AvgOxygenHydrogenSulphide = mean(OxygenHydrogenSulphide), 
-    MinOxygenHydrogenSulphide = min(OxygenHydrogenSulphide), 
-    MaxOxygenHydrogenSulphide = max(OxygenHydrogenSulphide), 
-    SampleCount = .N
+    AvgOxygenHydrogenSulphide = mean(OxygenHydrogenSulphide)#, 
+    # MinOxygenHydrogenSulphide = min(OxygenHydrogenSulphide), 
+    # MaxOxygenHydrogenSulphide = max(OxygenHydrogenSulphide), 
+    # SampleCount = .N
   ), .(
-    SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, Depth
+    SeaRegionID, 
+    ClusterID, 
+    Latitude, 
+    Longitude, 
+    Bathymetric, 
+    Year, 
+    Depth
   )
 ]
 
 # Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgOxygenHydrogenSulphide, MinMinOxygenHydrogenSulphide, MaxMaxOxygenHydrogenSulphide, SumCountSamples
-#wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide), MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Bathymetric, Year)]
+wk1 <- wk0[
+  , 
+  .(MinDepth = min(Depth), 
+    MaxDepth = max(Depth), 
+    # AvgTemperature = mean(AvgTemperature), 
+    # AvgSalinity = mean(AvgSalinity), 
+    AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide)#, 
+    # MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), 
+    # MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), 
+    # SampleCount = sum(SampleCount)
+    ), 
+  .(
+    SeaRegionID, 
+    ClusterID, 
+    Latitude, 
+    Longitude, 
+    Bathymetric, 
+    Year)
+  ]
 
 # Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgOxygenHydrogenSulphide, MinMinMinOxygenHydrogenSulphide, MaxMaxMaxOxygenHydrogenSulphide, SumSumCountSamples
-#wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide), MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+wk2 <- wk1[
+  , 
+  .(
+    AvgLatitude = mean(Latitude), 
+    AvgLongitude = mean(Longitude), 
+    MinDepth = min(MinDepth), 
+    MaxDepth = max(MaxDepth), 
+    # AvgTemperature = mean(AvgTemperature), 
+    # AvgSalinity = mean(AvgSalinity), 
+    AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide)#, 
+    # MinOxygenHydrogenSulphide = min(MinOxygenHydrogenSulphide), 
+    # MaxOxygenHydrogenSulphide = max(MaxOxygenHydrogenSulphide), 
+    # SampleCount = sum(SampleCount)
+  ), 
+  .(
+    SeaRegionID, 
+    ClusterID, 
+    Year
+  )
+]
 
 # prefix = "perc25_"
 # 
@@ -234,8 +356,45 @@ percentile = "05" # change if necessary
 
 prefix = paste0("perc", percentile, "_", assessmentYear, "_")
 
-Quartile_all <- wk0[, .(q = quantile(.SD, as.numeric(percentile)/100, na.rm = TRUE)), .(SeaRegionID, ClusterID, Year)]
+Quartile_all <- wk0[
+  , 
+  .(
+    q = quantile(
+      .SD,
+      as.numeric(percentile)/100, na.rm = TRUE
+      )
+  ), 
+  .(SeaRegionID, ClusterID, Year)
+  ]
 
+Quartile_all2 <- wk0 %>%
+  group_by(SeaRegionID, ClusterID, Year) %>%
+  summarise(
+    q = quantile(
+      x = AvgOxygenHydrogenSulphide, 
+      probs = 0.01, 
+      na.rm = TRUE
+    ),
+    q2 = median(AvgOxygenHydrogenSulphide, na.rm = T),
+    n = n(),
+    min = min(AvgOxygenHydrogenSulphide),
+    max = max(AvgOxygenHydrogenSulphide),
+    .groups = "drop"
+  )
+
+hist(Quartile_all$q)
+hist(Quartile_all2$q)
+
+#check
+Quartile_all %>%
+  left_join(
+    Quartile_all2, 
+    by = c(
+      SeaRegionID = "SeaRegionID", 
+      ClusterID = "ClusterID", 
+      Year = "Year")) %>% View
+  ggplot(aes(q.x, q.y)) +
+  geom_point()
 
 # # Calculate mean of lower quartile 
 mean_percentile <- wk0 %>% ungroup() %>%
