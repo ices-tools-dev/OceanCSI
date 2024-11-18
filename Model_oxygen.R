@@ -10,31 +10,17 @@ source("utilities_bathymetric.R")
 assessmentYear <- 2024
 setDTthreads(4)
 
-renewBathymetry = FALSE
+  # stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 
-if(renewBathymetry){
+# See script "fixBathymetry.R" where missing bathymetries were fixed.
   
-  stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
-
-  # newBathymetric <- -unlist(map2(stationSamples$Longitude, stationSamples$Latitude, get.bathymetric))
-  
-  stationSamples <- stationSamples %>%
-    # sample_n(200) %>%
-    mutate(
-      Bathymetric2 = case_when(
-        !is.na(Bathymetric) ~ Bathymetric,
-        is.na(Bathymetric) ~ -unlist(map2(Longitude, Latitude, get.bathymetric)
-        )
-      )
-    )
-  save(stationSamples, file = "Data/stationSamples_correctedBathymetry")
-}
-
 load(file = "Data/stationSamples_correctedBathymetry")
 
+stationSamples <- stationSamples_with_new_bathymetric
+rm(stationSamples_with_new_bathymetric)
 
 range(stationSamples$Oxygen, na.rm = T)
-stationSamples <- stationSamples[Oxygen != -999 & Oxygen != 999,,]
+stationSamples <- stationSamples[Oxygen > -999 & Oxygen < 999,,]
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
@@ -72,29 +58,29 @@ wk <- stationSamples[
     Oxygen, 
     HydrogenSulphide)
   ] %>%
-  # filter(
-  #   !(Oxygen >= 15 & Oxygen < 0) 
-  # ) %>%
+  filter(
+    !(Oxygen >= 12 | Oxygen < 0)
+  ) %>%
   as.data.table()
 
 summary(wk)
 # minimum oxygen = -7. Could be right if it implies H2S
 # maximum oxygen = 79. Can NOT be right
 
-View(wk[Oxygen > 10] %>% arrange(-Oxygen))
+View(stationSamples[Oxygen > 12] %>% arrange(-Oxygen))
 
 # High O2 in very shallow places (couple of meters)
 
-wk[Oxygen > 10] %>%
+stationSamples[Oxygen > 12] %>%
   leaflet() %>%
   addTiles() %>%
   addCircleMarkers(label = ~paste(Bathymetric, Depth, Oxygen))
 
 # Bathymetric is NA in some of the points. 
 
-graphics::hist(stationSamples$Oxygen, breaks = 1000)
-graphics::hist(wk$Oxygen, breaks = 1000)
-graphics::hist(wk$HydrogenSulphide, breaks = 1000)
+graphics::hist(stationSamples$Oxygen, breaks = 100)
+graphics::hist(wk$Oxygen, breaks = 100)
+graphics::hist(wk$HydrogenSulphide, breaks = 100)
 
 range(wk$Oxygen, na.rm = T)
 range(wk$HydrogenSulphide, na.rm = T)
@@ -112,12 +98,11 @@ wk <- wk[, OxygenHydrogenSulphide := ifelse(
 ]
 
 wk %>% 
-  sample_n(1000) %>%
-  arrange(Oxygen, HydrogenSulphide) %>%
+  sample_n(100000) %>%
+  arrange(OxygenHydrogenSulphide) %>%
   mutate(x = row_number()) %>%
   ggplot() +
-  geom_point(aes(x = x, y = Oxygen)) +
-  geom_point(aes(x = x, y = HydrogenSulphide))
+  geom_line(aes(x = x, y = OxygenHydrogenSulphide), color = "blue")
 
 ## Make map with percentiles (over whole population)
 
@@ -126,14 +111,15 @@ length(which(is.na(wk$OxygenHydrogenSulphide)))
 qpal <- colorQuantile("YlGnBu", wk$OxygenHydrogenSulphide, probs = c(0, 0.05, 0.25, 1))
 
 wk %>%
-  # sample_n(100000) %>%
+  sample_n(10000) %>%
   leaflet() %>%
   addTiles() %>%
   addCircleMarkers(
     radius = 4, 
     stroke = F,
     fillOpacity = 1, 
-    fillColor = ~qpal(OxygenHydrogenSulphide)) %>%
+    fillColor = ~qpal(OxygenHydrogenSulphide),
+    label = ~ signif(OxygenHydrogenSulphide, 3)) %>%
   leaflet::addLegend(
     "bottomright", 
     pal = qpal, 
@@ -352,27 +338,35 @@ wk2 <- wk1[
 # Previously calculated for 25 percentile, now testing 5 percentile. 
 # names of output files adjust automatically
 
-percentile = "05" # change if necessary
+percentile = "25" # change if necessary
 
 prefix = paste0("perc", percentile, "_", assessmentYear, "_")
 
-Quartile_all <- wk0[
+# Make table with quartiles per clusterID and year
+# 
+# In code below, q is calculated wrong!!!! This was the previously used code. 
+# I added q_alt, min and max in order to check. Do not use anymore. 
+Quartile_all_dt <- wk0[
   , 
   .(
     q = quantile(
       .SD,
       as.numeric(percentile)/100, na.rm = TRUE
-      )
+      ),
+    q_alt = quantile(AvgOxygenHydrogenSulphide, as.numeric(percentile)/100, na.rm = TRUE),
+    min = min(AvgOxygenHydrogenSulphide),
+    max = max(AvgOxygenHydrogenSulphide)
   ), 
   .(SeaRegionID, ClusterID, Year)
   ]
 
-Quartile_all2 <- wk0 %>%
+
+Quartile_all <- wk0 %>%
   group_by(SeaRegionID, ClusterID, Year) %>%
   summarise(
     q = quantile(
-      x = AvgOxygenHydrogenSulphide, 
-      probs = 0.01, 
+      AvgOxygenHydrogenSulphide, 
+      probs = as.numeric(percentile)/100, 
       na.rm = TRUE
     ),
     q2 = median(AvgOxygenHydrogenSulphide, na.rm = T),
@@ -381,20 +375,6 @@ Quartile_all2 <- wk0 %>%
     max = max(AvgOxygenHydrogenSulphide),
     .groups = "drop"
   )
-
-hist(Quartile_all$q)
-hist(Quartile_all2$q)
-
-#check
-Quartile_all %>%
-  left_join(
-    Quartile_all2, 
-    by = c(
-      SeaRegionID = "SeaRegionID", 
-      ClusterID = "ClusterID", 
-      Year = "Year")) %>% View
-  ggplot(aes(q.x, q.y)) +
-  geom_point()
 
 # # Calculate mean of lower quartile 
 mean_percentile <- wk0 %>% ungroup() %>%
@@ -408,6 +388,9 @@ mean_percentile <- wk0 %>% ungroup() %>%
             AvgDepth = mean(Depth),
             AvgOxygen = unique(q)) %>%  # = 5% quantile per year and ClusterID
   as.data.table()
+
+hist(mean_percentile$AvgOxygenOrig) # mean of values below percentile
+hist(mean_percentile$AvgOxygen) # percentile values
 
 
 fwrite(mean_percentile, file.path("Output", paste0(prefix, "Oxygen_status.csv")))
