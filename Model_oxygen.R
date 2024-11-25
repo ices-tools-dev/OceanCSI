@@ -20,6 +20,7 @@ stationSamples <- stationSamples_with_new_bathymetric
 rm(stationSamples_with_new_bathymetric)
 
 range(stationSamples$Oxygen, na.rm = T)
+hist(stationSamples$Oxygen)
 stationSamples <- stationSamples[Oxygen > -999 & Oxygen < 999,,]
 
 # Station Samples Summary
@@ -59,7 +60,7 @@ wk <- stationSamples[
     HydrogenSulphide)
   ] %>%
   filter(
-    !(Oxygen >= 12 | Oxygen < 0)
+    !(Oxygen >= 12)
   ) %>%
   as.data.table()
 
@@ -67,7 +68,8 @@ summary(wk)
 # minimum oxygen = -7. Could be right if it implies H2S
 # maximum oxygen = 79. Can NOT be right
 
-View(stationSamples[Oxygen > 12] %>% arrange(-Oxygen))
+View(stationSamples[Oxygen > 12] %>% arrange(-Oxygen)) # thrown away
+View(stationSamples[Oxygen < 0] %>% arrange(-Oxygen)) # keep, assuming it is converted hydrogensulphide
 
 # High O2 in very shallow places (couple of meters)
 
@@ -75,6 +77,13 @@ stationSamples[Oxygen > 12] %>%
   leaflet() %>%
   addTiles() %>%
   addCircleMarkers(label = ~paste(Bathymetric, Depth, Oxygen))
+
+stationSamples[Oxygen < 0] %>%
+  sample_n(10000) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(label = ~paste(Bathymetric, Depth, Oxygen))
+
 
 # Bathymetric is NA in some of the points. 
 
@@ -338,9 +347,8 @@ wk2 <- wk1[
 # Previously calculated for 25 percentile, now testing 5 percentile. 
 # names of output files adjust automatically
 
-percentile = "25" # change if necessary
+percentile = "05" # change if necessary
 
-prefix = paste0("perc", percentile, "_", assessmentYear, "_")
 
 # Make table with quartiles per clusterID and year
 # 
@@ -386,7 +394,8 @@ mean_percentile <- wk0 %>% ungroup() %>%
             AvgLongitude = mean(Longitude),
             AvgBathymetric = mean(Bathymetric),
             AvgDepth = mean(Depth),
-            AvgOxygen = unique(q)) %>%  # = 5% quantile per year and ClusterID
+            AvgOxygen = unique(q),
+            .groups = 'drop') %>%  # = 5% quantile per year and ClusterID
   as.data.table()
 
 hist(mean_percentile$AvgOxygenOrig) # mean of values below percentile
@@ -427,88 +436,126 @@ setkey(ID_class, ClusterID)
 
 mean_percentile2 <- mean_percentile[ID_class]
 
+# maak functie makeOutput(beginyear, endyear, percentile_df = mean_percentile2, outputDir = "output/", prefix = prefix)
 
-for(cc in seq(1:length(classes))){
+make_oxygen_output <- function(
+    classes = classes, 
+    percentile_df = mean_percentile2, 
+    selected_years,    
+    prefix = prefix
+    ) {
   
-  yearcriteria <- mean_percentile2[
-    Year>2006 & class == cc, unique(ClusterID)
-    ]
-  
-  clusterSelection <- mean_percentile[
-    ClusterID %in% yearcriteria
-  ][,
-    list(NrClustersPerYear = .N, 
-         AvgLatitude = mean(AvgLatitude), 
-         AvgLongitude = mean(AvgLongitude)
-    ), 
-    by = .(ClusterID, Year, SeaRegionID)][
-      , 
-      .(NrYears = .N), 
-      by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][
-        NrYears >=5
+  for(cc in seq(1:length(classes))){
+    
+    yearcriteria <- mean_percentile2[
+      Year %in% selected_years & class == cc, unique(ClusterID)
       ]
-  
-  try(hist(clusterSelection$NrYears))
-  wk22 <- mean_percentile[
-    ClusterID %in% clusterSelection$ClusterID
-  ]
-  if(nrow(wk22 != 0)){
-    l <- wk22 %>% 
-      as.data.frame() %>% 
-      split(.$ClusterID) 
     
-    timeserieslist <- lapply(
-      l, 
-      function(x) {
-        xts::xts(
-          x[
-            ,"AvgOxygen"
-          ], order.by = as.Date(
-            as.character(
-              x[
-                ,"Year"
-              ]
-            ),
-            format = "%Y"
+    clusterSelection <- mean_percentile2[
+      ClusterID %in% yearcriteria
+    ][,
+      list(NrClustersPerYear = .N, 
+           AvgLatitude = mean(AvgLatitude), 
+           AvgLongitude = mean(AvgLongitude)
+      ), 
+      by = .(ClusterID, Year, SeaRegionID)][
+        , 
+        .(NrYears = .N), 
+        by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][
+          NrYears >=5
+        ]
+    
+    try(hist(clusterSelection$NrYears))
+    wk22 <- mean_percentile[
+      ClusterID %in% clusterSelection$ClusterID
+    ]
+    if(nrow(wk22 != 0)){
+      l <- wk22 %>% 
+        as.data.frame() %>% 
+        split(.$ClusterID) 
+      
+      timeserieslist <- lapply(
+        l, 
+        function(x) {
+          xts::xts(
+            x[
+              ,"AvgOxygen"
+            ], order.by = as.Date(
+              as.character(
+                x[
+                  ,"Year"
+                ]
+              ),
+              format = "%Y"
+            )
           )
-        )
-      }
-    )
-    KendallResult <- lapply(
-      timeserieslist, 
-      function(x) MannKendall(x)
-    )
-    df.KendallResult <- as.data.frame(
-      matrix(
-        unlist(
-          list.flatten(
-            KendallResult
-          )
-        ), 
-        ncol  = 5, 
-        byrow = T
+        }
       )
-    )
-    
-    names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
-    df.KendallResult$ClusterID <- as.integer(names(KendallResult))
-    KendallResult.clustered <- df.KendallResult %>% 
-      left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
-      filter(!is.na(S)) %>%
-      mutate(trend = case_when(
-        .$sl <= 0.05 & .$S < 0 ~ "decreasing",
-        .$sl <= 0.05 & .$S > 0 ~ "increasing",
-        .$sl > 0.05 ~ "no trend")
-      ) %>%
-      mutate(trend = as.factor(trend))
-    KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
-    
-    fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", classes[cc], ".csv"))
-    
-    plotKendallClasses(
-      plotdata = KendallResult.clustered, 
-      parameterValue = paste0(prefix, "Oxygen")
-    )
-    saveEuropeTrendMap(paste(prefix, "Oxygen", classes[cc]))
+      KendallResult <- lapply(
+        timeserieslist, 
+        function(x) MannKendall(x)
+      )
+      df.KendallResult <- as.data.frame(
+        matrix(
+          unlist(
+            list.flatten(
+              KendallResult
+            )
+          ), 
+          ncol  = 5, 
+          byrow = T
+        )
+      )
+      
+      names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
+      df.KendallResult$ClusterID <- as.integer(names(KendallResult))
+      KendallResult.clustered <- df.KendallResult %>% 
+        left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+        filter(!is.na(S)) %>%
+        mutate(trend = case_when(
+          .$sl <= 0.05 & .$S < 0 ~ "decreasing",
+          .$sl <= 0.05 & .$S > 0 ~ "increasing",
+          .$sl > 0.05 ~ "no trend")
+        ) %>%
+        mutate(trend = as.factor(trend)) %>%
+        mutate(mutate(across(where(is.numeric), \(x) round(x, 3))))
+      
+      KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+      
+      fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", classes[cc], ".csv"))
+      
+      plotKendallClasses(
+        plotdata = KendallResult.clustered, 
+        parameterValue = paste(prefix, "Oxygen", classes[cc])
+      )
+      saveEuropeTrendMap(paste(prefix, "Oxygen", classes[cc]))
+    }
   }
+
 }
+
+# make products for current situation (-15 years until now)
+# 
+make_oxygen_output(
+  classes = classes,
+  selected_years = c((assessmentYear - 15): assessmentYear), 
+  prefix = paste0("perc", percentile, "_", assessmentYear, "_")
+)
+
+# make products for before 2000 situation
+
+make_oxygen_output(
+  classes = classes,
+  selected_years = c(1980: 1999), 
+  prefix = paste0("perc", percentile, "_", 1980, "-", 1999, "_")
+)
+
+# make products for after 2000 situation
+
+make_oxygen_output(
+  classes = classes,
+  selected_years = c(2000: assessmentYear), 
+  prefix = paste0("perc", percentile, "_", 2000, "-", assessmentYear, "_")
+)
+
+
