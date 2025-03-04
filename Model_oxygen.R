@@ -12,14 +12,12 @@ setDTthreads(4)
 
 renewBathymetry = FALSE
 
-if(renewBathymetry){
+if(renewBathymetry){ # TAKES VERY LONG TIME (DAYS)
   
   stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 
-  # newBathymetric <- -unlist(map2(stationSamples$Longitude, stationSamples$Latitude, get.bathymetric))
-  
   stationSamples <- stationSamples %>%
-    # sample_n(200) %>%
+    # sample_n(200) %>% # for testing
     mutate(
       Bathymetric2 = case_when(
         !is.na(Bathymetric) ~ Bathymetric,
