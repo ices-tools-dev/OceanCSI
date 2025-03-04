@@ -87,14 +87,14 @@ plotKendallClasses <- function(plotdata, parameterValue){
   
   # define color scale for trendplotting
   cols <- c("increasing" = "red", "no trend" = "grey", "decreasing" = "green")
-  if(parameterValue == "Oxygen") cols <- c("decreasing" = "red", "no trend" = "grey", "increasing" = "green")
+  if(grepl("Oxygen", parameterValue, ignore.case = T)) cols <- c("decreasing" = "red", "no trend" = "grey", "increasing" = "green")
   
   # geographical limits  
   xxlim = c(bboxEurope[1], bboxEurope[3])
   yylim = c(bboxEurope[2], bboxEurope[4])
   
-  if(parameterValue != "Oxygen") setorderv(plotdata, "trend", 1)
-  if(parameterValue == "Oxygen") setorderv(plotdata, "trend", 1)
+  if(!grepl("Oxygen", parameterValue, ignore.case = T)) setorderv(plotdata, "trend", 1)
+  if(grepl("Oxygen", parameterValue, ignore.case = T)) setorderv(plotdata, "trend", 1)
   
   ggplot() +
     geom_polygon(data = world, aes(long, lat, group = group), fill = "darkgrey", color = "black") +

@@ -2,10 +2,10 @@ library(tidyverse)
 library(httr)
 
 # Function to get bathymetric depth from EMODnet bathymetry REST web service
-get.bathymetric <- function(x, y, host = "https://rest.emodnet-bathymetry.eu") {
-  query = paste0("/depth_sample?geom=POINT(", x, "%20", y,")")
+get.bathymetric <- function(x, y, host = "https://rest.emodnet-bathymetry.eu/depth_sample?") {
+  query = paste0("geom=POINT(", x, "%20", y,")")
   path = paste0(host, query)
-  r = GET(path)
+  r = try(GET(path))
   # to catch empty responses in a proper way
   if(is.numeric(content(r)$avg)){
     return(content(r)$avg)
