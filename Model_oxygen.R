@@ -354,23 +354,13 @@ percentile = "05" # change if necessary
 
 prefix = paste0("perc", percentile, "_", assessmentYear, "_")
 
-Quartile_all <- wk0[
-  , 
-  .(
-    q = quantile(
-      .SD,
-      as.numeric(percentile)/100, na.rm = TRUE
-      )
-  ), 
-  .(SeaRegionID, ClusterID, Year)
-  ]
 
-Quartile_all2 <- wk0 %>%
+Quartile_all <- wk0 %>%
   group_by(SeaRegionID, ClusterID, Year) %>%
   summarise(
     q = quantile(
-      x = AvgOxygenHydrogenSulphide, 
-      probs = 0.01, 
+      AvgOxygenHydrogenSulphide, 
+      probs = as.numeric(percentile)/100, 
       na.rm = TRUE
     ),
     q2 = median(AvgOxygenHydrogenSulphide, na.rm = T),
@@ -379,6 +369,7 @@ Quartile_all2 <- wk0 %>%
     max = max(AvgOxygenHydrogenSulphide),
     .groups = "drop"
   )
+
 
 hist(Quartile_all$q)
 hist(Quartile_all2$q)

@@ -1,12 +1,14 @@
 
 searegionFile <- "Input/EEA_SeaRegion_20180831.shp"
-searegionMapping <- sf::st_read(searegionFile) %>%
+searegionMapping <- sf::st_read(searegionFile, quiet = T) %>%
   st_drop_geometry() %>%
   select(ID, Region, SubRegion)
 
 perc = "05"
-timeperiod = "1980-1999"
-timeperiod = "2000-2024"
+
+timeperiods = c("1980-1999", "2000-2024")
+
+for(timeperiod in timeperiods){
 
 classes <- c("O2_4 mg_l", "4_O2_6 mg_l", "O2_6 mg_l")
 prettyClassNames <- c("O2 < 4 mg/l", "4 < O2 < 6 mg/l", "O2 > 6 mg/l")
@@ -17,7 +19,7 @@ sort(classes)
 
 data = lapply(
   filenames,
-  \(filename)read_csv(filename)
+  \(filename)read_csv(filename, show_col_types = F)
 )
 names(data) <- sort(classes)
 
@@ -40,7 +42,10 @@ ggplot(data_df, aes(x = class)) +
       "no trend" = "darkblue"
     )
   ) +
-  facet_wrap("SeaRegionID")
+  facet_wrap("searegion")
+ggsave(paste0("output/", "barchart_", perc, "_", timeperiod, ".png"), width = 8, height = 4)
+
+print("")
 
 data_df %>%
   group_by(
@@ -48,4 +53,5 @@ data_df %>%
   summarise(n = n(), .groups = "drop") %>%
   mutate(trend = as.character(trend)) %>%
   pivot_wider(id_cols = c(searegion, class), names_from = "trend", values_from = "n") %>%
-  write_csv(paste0("assessment 2024/output_2024/", "barchartdata_", perc, "_", timeperiod, ".csv"))
+  write_csv(paste0("output/", "barchartdata_", perc, "_", timeperiod, ".csv"))
+}

@@ -102,7 +102,7 @@ plotKendallClasses <- function(plotdata, parameterValue){
     scale_fill_manual(values = cols) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
     #ggtitle(paste("Trends in", parameterValue, prettyClassNames, "1980 -", assessmentYear)) +
-    ggtitle(paste("Trends in", parameterValue, "1980 -", assessmentYear)) +
+    ggtitle(paste("Trends in", parameterValue)) +
     theme_bw() + 
     theme(
       text = element_text(size = 15),
