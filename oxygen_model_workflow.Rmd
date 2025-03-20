@@ -378,12 +378,13 @@ make_oxygen_output <- function(
       filter(
         Year %in% selected_years,
         class == cc) %>%
-      group_by(SeaRegionID, ClusterID, Year, class, AvgLatitude, AvgLongitude) %>%
+      group_by(SeaRegionID, ClusterID, Year, class) %>%
       summarize(
         NrObsPerClusterYear = n(),
         AvgLatitude = mean(AvgLatitude, na.rm = T), 
         AvgLongitude = mean(AvgLongitude, na.rm = T),
-        AvgOxygen = mean(AvgOxygenHydrogenSulphide, na.rm = T)
+        AvgOxygen = mean(AvgOxygenHydrogenSulphide, na.rm = T), 
+        .groups = "drop"
       ) %>% 
       ungroup() %>%
       group_by(SeaRegionID, ClusterID) %>%
@@ -436,7 +437,15 @@ make_oxygen_output <- function(
       names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
       df.KendallResult$ClusterID <- as.integer(names(KendallResult))
       KendallResult.clustered <- df.KendallResult %>% 
-        left_join(clusterSelection %>% distinct(SeaRegionID, ClusterID, AvgLatitude, AvgLongitude), by = c('ClusterID' = 'ClusterID')) %>%
+        left_join(
+          clusterSelection %>% 
+            group_by(SeaRegionID, ClusterID) %>%
+            summarize(
+              AvgLatitude = mean(AvgLatitude, na.rm = T), 
+              AvgLongitude = mean(AvgLongitude, na.rm = T),
+              .groups = "drop"
+                      ), 
+          by = c('ClusterID' = 'ClusterID')) %>%
         filter(!is.na(S)) %>%
         mutate(trend = case_when(
           .$sl <= 0.05 & .$S < 0 ~ "decreasing",
@@ -448,6 +457,7 @@ make_oxygen_output <- function(
       
       KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
       
+      # write csv output for EEA tables
       fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", cc, ".csv"))
       
       plotKendallClasses(
