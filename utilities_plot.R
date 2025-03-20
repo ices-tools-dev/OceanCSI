@@ -83,7 +83,7 @@ saveEuropeStatusMap <- function(parameter, width = 10, height = 8) {
          height = height, width = width)
 }
 
-plotKendallClasses <- function(plotdata, parameterValue){
+plotKendallClasses <- function(plotdata, parameterValue, prefix_title){
   
   # define color scale for trendplotting
   cols <- c("increasing" = "red", "no trend" = "grey", "decreasing" = "green")
@@ -102,7 +102,7 @@ plotKendallClasses <- function(plotdata, parameterValue){
     scale_fill_manual(values = cols) +
     coord_quickmap(xlim = xxlim, ylim = yylim) +
     #ggtitle(paste("Trends in", parameterValue, prettyClassNames, "1980 -", assessmentYear)) +
-    ggtitle(paste("Trends in", parameterValue)) +
+    ggtitle(paste("Trends in", parameterValue, prefix_title)) +
     theme_bw() + 
     theme(
       text = element_text(size = 15),

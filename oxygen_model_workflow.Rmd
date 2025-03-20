@@ -5,6 +5,7 @@ date: "2025-03-03"
 output: html_document
 params: 
   percentile: "05" # change if necessary
+  assessmentYear: 2024
 ---
 
 ```{r setup, include=FALSE}
@@ -16,7 +17,13 @@ library(ggExtra)
 require(leaflet)
 source("utilities_plot.R")
 source("utilities_bathymetric.R")
-assessmentYear <- 2024
+
+assessmentYear <- params$assessmentYear
+classes <- c("O2_4 mg_l", "4_O2_6 mg_l", "O2_6 mg_l")
+prettyClassNames <- c("O2 < 4 mg/l", "4 < O2 < 6 mg/l", "O2 > 6 mg/l")
+
+ETC_ClassNames <- c("DO<2", "DO 2-4", "DO 4-6", "DO>6")
+
 ```
 
 Improve workflow
@@ -39,6 +46,18 @@ Improve workflow
 ```{r read-data}
 # stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 load("data/stationSamples_correctedBathymetry.RData")
+
+range(stationSamples_with_new_bathymetric$Oxygen, na.rm = T)
+range(stationSamples_with_new_bathymetric$HydrogenSulphide, na.rm = T)
+
+# remove apparent NA's in oxygen
+
+stationSamples_with_new_bathymetric <- stationSamples_with_new_bathymetric %>%
+  mutate(Oxygen = dplyr::if_else(Oxygen < -100 | Oxygen > 50, NA_real_, Oxygen))
+
+range(stationSamples_with_new_bathymetric$Oxygen, na.rm = T)
+  
+
 ```
 
 ## Check bathymetry data
@@ -143,7 +162,8 @@ wk <- stationSamples_with_new_bathymetric %>%  #37690491
         NA
       )
     )
-  )
+  ) %>%
+  drop_na(OxygenHydrogenSulphide)
 
 ```
 
@@ -227,6 +247,7 @@ wk1 <- wk0 %>%
 ```
 
 
+
 ### Make averages over each cluster and year
 
 These values are used for the status
@@ -243,7 +264,8 @@ wk2 <- wk1 %>%
     AvgLongitude = mean(Longitude, na.rm = T), 
     MinDepth = min(MinDepth, na.rm = T), 
     MaxDepth = max(MaxDepth, na.rm = T), 
-    AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide, na.rm = T)#, 
+    AvgOxygenHydrogenSulphide = mean(AvgOxygenHydrogenSulphide, na.rm = T),
+    .groups = "drop" 
   )
 
 ```
@@ -271,6 +293,8 @@ Quartile_all <- wk0 %>%
     n = n(),
     min = min(AvgOxygenHydrogenSulphide, na.rm = T),
     max = max(AvgOxygenHydrogenSulphide, na.rm = T),
+    AvgLatitude = mean(Latitude, na.rm = T),
+    AvgLongitude = mean(Longitude, na.rm = T),
     .groups = "drop"
   )
 
@@ -302,7 +326,7 @@ fwrite(Quartile_all, file.path("Output", paste0(prefix, "Oxygen_status.csv")))
 # Plot average status for last 5 years 
 
 wk21 <- wk2 %>%
-  filter(Year >= assessmentYear - 5 & Year <= assessmentYear) %>%
+  filter(Year >= assessmentYear - 5 & Year <= assessmentYear & AvgOxygenHydrogenSulphide < 12) %>%
   group_by(ClusterID) %>%
   summarise(
     Oxygen = mean(AvgOxygenHydrogenSulphide, na.rm = T),
@@ -311,10 +335,13 @@ wk21 <- wk2 %>%
   )
 
 
-plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
+plotStatusMaps(bboxEurope, data = wk21, 
+               xlong = "AvgLongitude", 
+               ylat = "AvgLatitude", 
                parameterValue = "Oxygen", 
                invJet = T, 
-               limits = c(0,12))
+               limits = "auto"
+               )
 
 saveEuropeStatusMap(parameter = paste0(prefix, "Oxygen"))
 ```
@@ -323,8 +350,6 @@ saveEuropeStatusMap(parameter = paste0(prefix, "Oxygen"))
 ```{r}
 
 
-classes <- c("O2_4 mg_l", "4_O2_6 mg_l", "O2_6 mg_l")
-prettyClassNames <- c("O2 < 4 mg/l", "4 < O2 < 6 mg/l", "O2 > 6 mg/l")
 
 wk22 <- wk2 %>% ungroup() %>%
    mutate(
@@ -347,7 +372,7 @@ make_oxygen_output <- function(
     prefix = prefix
     ) {
   
-  for(cc in seq(1:length(classes))){
+  for(cc in classes){
     
     clusterSelection <- percentile_df %>%
       filter(
@@ -366,26 +391,8 @@ make_oxygen_output <- function(
       ungroup() %>%
       filter(NrYears >= 5)
 
-    
-    # replaced by above. Not sure if part below this worked well
-    # clusterSelection <- mean_percentile2[
-    #   ClusterID %in% yearcriteria
-    # ][,
-    #   list(NrClustersPerYear = .N, 
-    #        AvgLatitude = mean(AvgLatitude), 
-    #        AvgLongitude = mean(AvgLongitude)
-    #   ), 
-    #   by = .(ClusterID, Year, SeaRegionID)][
-    #     , 
-    #     .(NrYears = .N), 
-    #     by = .(ClusterID, AvgLatitude, AvgLongitude, SeaRegionID)][
-    #       NrYears >=5
-    #     ]
-    # 
-    
     try(hist(clusterSelection$NrYears))
     
-
     if(nrow(clusterSelection != 0)){
       l <- clusterSelection %>% 
         as.data.frame() %>% 
@@ -429,7 +436,7 @@ make_oxygen_output <- function(
       names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
       df.KendallResult$ClusterID <- as.integer(names(KendallResult))
       KendallResult.clustered <- df.KendallResult %>% 
-        left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
+        left_join(clusterSelection %>% distinct(SeaRegionID, ClusterID, AvgLatitude, AvgLongitude), by = c('ClusterID' = 'ClusterID')) %>%
         filter(!is.na(S)) %>%
         mutate(trend = case_when(
           .$sl <= 0.05 & .$S < 0 ~ "decreasing",
@@ -441,13 +448,14 @@ make_oxygen_output <- function(
       
       KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
       
-      fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", classes[cc], ".csv"))
+      fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", cc, ".csv"))
       
       plotKendallClasses(
         plotdata = KendallResult.clustered, 
-        parameterValue = paste(prefix, "Oxygen", classes[cc])
+        parameterValue = paste("Oxygen"),
+        prefix_title = paste(prefix, classes[cc])
       )
-      saveEuropeTrendMap(paste(prefix, "Oxygen", classes[cc]))
+      saveEuropeTrendMap(paste(prefix, "Oxygen", cc))
     }
   }
 
@@ -481,9 +489,14 @@ make_oxygen_output(
 )
 
 ```
-
+### Create bar graphs
 
 ```{r}
 source("make_bar_graphs_per_region.R")
+```
+### Create summary figures and tables
+
+```{r}
+source("oassesment 2024/xygenIndicators_summary_figures_2024.R")
 ```
 
