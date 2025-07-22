@@ -7,25 +7,25 @@ source("utilities_searegion.R")
 # or
 # https://discodata.eea.europa.eu
 
-# Read monitoring_sites --> 71843
-monitoring_sites <- fread("Input/Waterbase_v2022_1_S_WISE6_SpatialObject_DerivedData.csv.gz")
+# Read monitoring_sites --> 71,843 (2022) --> 144,586 (2024) 
+monitoring_sites <- fread("Input/Waterbase_v2024_1_S_WISE6_SpatialObject_DerivedData.csv.gz")
 
 # N.B! Unfortunately the monitoringSiteIdentifier with longitude and latitude aren't unique
 # which forces us to identify and remove duplicates.
 
-# Remove empty monitoringSiteIdentifier, lat or lon --> 55943
+# Remove empty monitoringSiteIdentifier, lat or lon --> 55,943 (2022) --> 118,566 (2024)
 monitoring_sites <- monitoring_sites[!monitoringSiteIdentifier == "" & !is.na(lat) & !is.na(lon)]
 
-# Calculate unique monitoring_sites --> 55,820
+# Calculate unique monitoring_sites --> 55,820 (2022) --> 63,930 (2024)
 uniqueN(monitoring_sites[, .(monitoringSiteIdentifier)])
 
-# Remove duplicates and select fields needed --> 55820
+# Remove duplicates and select fields needed --> 55820 (2022) --> 63,930 (2024)
 monitoring_sites <- monitoring_sites[!duplicated(monitoring_sites, by = c("monitoringSiteIdentifier")), .(monitoringSiteIdentifier, lon, lat)]
 
-# Read observations --> 61,793,906 observations
-observations <- fread("Input/Waterbase_v2022_1_T_WISE6_DisaggregatedData.csv.gz")
+# Read observations --> 61,793,906 (2022) --> 81,901,637 (2024) observations
+observations <- fread("Input/Waterbase_v2024_1_T_WISE6_DisaggregatedData.csv.gz")
 
-# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196,202 observations
+# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196,202 (2022) --> 210,832 (2025) observations
 observations <- observations[
     observedPropertyDeterminandLabel %in% c('Water temperature','Salinity','Dissolved oxygen','Phosphate','Total phosphorus','Nitrate','Nitrite','Ammonium','Total nitrogen','Chlorophyll a')
   &
@@ -41,7 +41,7 @@ observations <- observations[
 # View observations parameter units
 observations[, .N, by = .(observedPropertyDeterminandLabel, resultUom)]
 
-# Dcast into samples --> 40,801 samples 
+# Dcast into samples --> 40,801 (2022) --> 43,687 (2025) samples 
 samples <- dcast(observations, monitoringSiteIdentifier + phenomenonTimeSamplingDate + parameterSampleDepth ~ observedPropertyDeterminandLabel, value.var = "resultObservedValue", fun.aggregate = mean)
 
 # Merge stations i.e. monitoring sites (latitude longitude) into samples
@@ -83,10 +83,13 @@ stationSamples <- stationSamples[, .(
   QV.ODV.Chlorophyll.a..ug.l. = ifelse(is.na(`Chlorophyll a`), "1", "0")
   )]
 
+# Get rid of station samples with missing coordinates
+stationSamples <- stationSamples[!is.na(Longitude..degrees_east.) | !is.na(Latitude..degrees_north.)]
+
 # Free memory
 rm(monitoring_sites, observations, samples)
 
-# Extract unique locations i.e. longitude/latitude pairs --> 843 positions
+# Extract unique locations i.e. longitude/latitude pairs --> 843 (2022) --> 883 (2024) positions
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
 # Classify locations into sea regions

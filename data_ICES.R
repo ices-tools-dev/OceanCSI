@@ -6,8 +6,8 @@ source("utilities_searegion.R")
 
 # Read and Merge station samples -----------------------------------------------
 
-# ICES Bottle and low resolution CTD data --> 21,641,076 --> 15,389,705 station samples
-stationSamplesBOT <- fread(input = "Input/ICES_StationSamples_BOT_2024-07-10.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES Bottle and low resolution CTD data --> 21,641,076 (2022) --> 15,389,705 (2024) --> 15,593,053 (2025) station samples
+stationSamplesBOT <- fread(input = "Input/ICES_StationSamples_BOT_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesBOT <- stationSamplesBOT[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -41,14 +41,14 @@ stationSamplesBOT <- stationSamplesBOT[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l. = QV.ODV.Ammonium..AMONZZXX_UPOX.,
   Total.Nitrogen..N...umol.l. = Total.Nitrogen..NTOTZZXX_UPOX...umol.l.,
   QV.ODV.Total.Nitrogen..N...umol.l. = QV.ODV.Total.Nitrogen..NTOTZZXX_UPOX.,
-  Hydrogen.Sulphide..H2S.S...umol.l. = Hydrogen.Sulphide..H2SXZZXX_UPOX...umol.l.,
-  QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. = QV.ODV.Hydrogen.Sulphide..H2SXZZXX_UPOX.,
+  Hydrogen.Sulphide..H2S.S...umol.l. = Hydrogen.SulphIDe..H2SXZZXX_UPOX...umol.l.,
+  QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. = QV.ODV.Hydrogen.SulphIDe..H2SXZZXX_UPOX.,
   Chlorophyll.a..ug.l. = Chlorophyll.a..CPHLZZXX_UGPL...ug.l.,
   QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
   )]
 
-# ICES high resolution CTD data --> 153,897,705 -->  station samples
-stationSamplesCTD <- fread(input = "Input/ICES_StationSamples_CTD_2024-07-10.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES high resolution CTD data --> 155,897,705 (2024) --> 129,075,486 (2025) station samples
+stationSamplesCTD <- fread(input = "Input/ICES_StationSamples_CTD_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesCTD <- stationSamplesCTD[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -78,8 +78,8 @@ stationSamplesCTD <- stationSamplesCTD[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
 )]
 
-# ICES Pump data --> 2,997,668 --> 2,997,668 station samples
-stationSamplesPMP <- fread(input = "Input/ICES_StationSamples_PMP_2024-07-10.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES Pump data --> 2,997,668 (2022) --> 2,997,668 (2024) --> 2,997,668 (2025) station samples
+stationSamplesPMP <- fread(input = "Input/ICES_StationSamples_PMP_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesPMP <- stationSamplesPMP[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -117,19 +117,19 @@ stationSamplesPMP <- stationSamplesPMP[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
 )]
 
-# Combined data tables --> ? station samples
+# Combined data tables --> 147,666,207 (2025) station samples
 stationSamples <- rbindlist(list(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP), use.names = TRUE, fill = TRUE)
 
 # Free memory
 rm(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP)
 
-# Extract unique locations i.e. longitude/latitude pairs --> ?  locations
+# Extract unique locations i.e. longitude/latitude pairs --> 3,317,080 (2025) locations
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
-# Classify locations into sea regions --> 2,897,755 locations
+# Classify locations into sea regions --> 2,897,755 (2024) --> 2,901,653 (2025) locations
 locations <- classify_locations_into_searegions(locations)
 
-# Merge locations incl. sea regions back into station samples - getting rid of station samples not classified --> 46,409,020 station samples
+# Merge locations incl. sea regions back into station samples - getting rid of station samples not classified --> 46,409,020 (2024) --> 46,963,430 (2025) station samples
 stationSamples <- locations[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.), nomatch = 0]
 
 # Output station samples

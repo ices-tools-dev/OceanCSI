@@ -4,13 +4,13 @@ stationSamples_ICES <- fread(input = "Data/StationSamples_ICES.csv.gz")
 stationSamples_EMODNET <- fread(input = "Data/StationSamples_EMODNET.csv.gz")
 stationSamples_EEA <- fread(input = "Data/StationSamples_EEA.csv.gz")
 
-# Combined data tables --> 88,516,449 station samples
+# Combined data tables --> 88,516,449 --> 99,151,701 (2025) station samples
 stationSamples <- rbindlist(list(stationSamples_ICES, stationSamples_EMODNET, stationSamples_EEA), use.names = TRUE, fill = TRUE)
 
 # Free memory
 rm(stationSamples_ICES, stationSamples_EMODNET, stationSamples_EEA)
 
-# Extract unique locations i.e. longitude/latitude pairs --> 3,637,548 locations
+# Extract unique locations i.e. longitude/latitude pairs --> 3,637,548 --> 4,561,786 (2025) locations
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
 # Classify locations into clusters
@@ -21,7 +21,13 @@ locations <- classify_locations_into_clusters(locations)
 stationSamples <- locations[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.), nomatch = 0]
 
 # Extract unique locations used by the dissolved oxygen indicator
-locations <- unique(stationSamples[(Month >= 7 & Month <= 10) & ((!is.na(Dissolved.Oxygen..ml.l.) & QV.ODV.Dissolved.Oxygen..ml.l. != 3 & QV.ODV.Dissolved.Oxygen..ml.l. != 4) | (!is.na(Hydrogen.Sulphide..H2S.S...umol.l.) & QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. != 3 & QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. != 4)), .(Longitude..degrees_east., Latitude..degrees_north.)])
+locations <- unique(stationSamples[(Month >= 7 & Month <= 10) & ((!is.na(Dissolved.Oxygen..ml.l.) & QV.ODV.Dissolved.Oxygen..ml.l. != 4 & QV.ODV.Dissolved.Oxygen..ml.l. != 8) | (!is.na(Hydrogen.Sulphide..H2S.S...umol.l.) & QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. != 4 & QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. != 8)), .(Longitude..degrees_east., Latitude..degrees_north.)])
+
+#fwrite(locations, file.path("Data", "Locations.csv.gz"))
+#locations <- fread(input = "Data/Locations.csv.gz")
+#source("utilities_bathymetric.R")
+#locations <- as.data.table(classify_locations_into_bathymetric(locations))
+#fwrite(locations, file.path("Data", "Locations.csv.gz"))
 
 # Classify locations used by the dissolved oxygen indicator into bathymetric
 source("utilities_bathymetric.R")

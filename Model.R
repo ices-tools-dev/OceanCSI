@@ -43,9 +43,49 @@ stationSamples <- stationSamples[, .(
   ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
   )]
 
+# Station Samples for the Oxygen Indicator
+stationSamplesOxygen <- stationSamples[!is.na(Oxygen) | !is.na(HydrogenSulphide), .(
+  DataSourceID,
+  SeaRegionID,
+  ClusterID,  
+  Latitude,
+  Longitude,
+  Year,
+  Month,
+  Sounding,
+  Bathymetric, 
+  Depth,
+  DepthQ,
+  Oxygen,
+  OxygenQ,
+  HydrogenSulphide,
+  HydrogenSulphideQ
+)]
+fwrite(stationSamplesOxygen, file.path("Data", "StationSamplesOxygen.csv"))
+
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
-stationSamplesSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID)]
+stationSamplesDataSourceSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID)]
+fwrite(stationSamplesDataSourceSummary, file.path("Data", "StationSamplesDataSourceSummary.csv"))
+
+stationSamplesDataSourceSeaRegionSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID, SeaRegionID)]
+fwrite(stationSamplesDataSourceSeaRegionSummary, file.path("Data", "StationSamplesDataSourceSeaRegionSummary.csv"))
+
+locationsDataSourceSeaRegion <- unique(stationSamples[, .(DataSourceID, SeaRegionID, Longitude, Latitude)])
+
+locationsDataSourceSummary <- locationsDataSourceSeaRegion[, .N, (DataSourceID)]
+
+
+library(ggplot2)
+
+locationsSeaRegionICES <- unique(stationSamples[DataSourceID <= 3, .(SeaRegionID, Longitude, Latitude)])
+ggplot(locationsSeaRegionICES, mapping = aes(Longitude, Latitude)) + geom_point(aes(colour = factor(SeaRegionID)))
+
+locationsSeaRegionEMODNET <- unique(stationSamples[DataSourceID >= 4 & DataSourceID <= 9, .(SeaRegionID, Longitude, Latitude)])
+ggplot(locationsSeaRegionEMODNET, mapping = aes(Longitude, Latitude)) + geom_point(aes(colour = factor(SeaRegionID)))
+
+locationsSeaRegionEEA <- unique(stationSamples[DataSourceID == 10, .(SeaRegionID, Longitude, Latitude)])
+ggplot(locationsSeaRegionEEA, mapping = aes(Longitude, Latitude)) + geom_point(aes(colour = factor(SeaRegionID)))
 
 # Nitrate Nitrogen (Winter) -------------------------------------------------------------
 #   Parameters: [NO3-N]
