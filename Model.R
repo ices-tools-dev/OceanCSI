@@ -2,7 +2,7 @@ library(data.table)
 
 source("utilities_plot.R")
 
-assessmentYear <- 2023
+assessmentYear <- 2024
 
 #load(file.path("Output", "StationSamples.RData"))
 stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
@@ -61,19 +61,19 @@ stationSamplesOxygen <- stationSamples[!is.na(Oxygen) | !is.na(HydrogenSulphide)
   HydrogenSulphide,
   HydrogenSulphideQ
 )]
-fwrite(stationSamplesOxygen, file.path("Data", "StationSamplesOxygen.csv"))
+fwrite(stationSamplesOxygen, file.path("Data", "StationSamplesOxygen.csv.gz"))
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
-stationSamplesDataSourceSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID)]
-fwrite(stationSamplesDataSourceSummary, file.path("Data", "StationSamplesDataSourceSummary.csv"))
+#stationSamplesDataSourceSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID)]
+#fwrite(stationSamplesDataSourceSummary, file.path("Data", "StationSamplesDataSourceSummary.csv"))
 
-stationSamplesDataSourceSeaRegionSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID, SeaRegionID)]
-fwrite(stationSamplesDataSourceSeaRegionSummary, file.path("Data", "StationSamplesDataSourceSeaRegionSummary.csv"))
+#stationSamplesDataSourceSeaRegionSummary <- stationSamples[, lapply(.SD, function(x) sum(!is.na(x))), .SDcols = c(10,12,14,16,18,20,22,24,26,28,30,32), .(DataSourceID, SeaRegionID)]
+#fwrite(stationSamplesDataSourceSeaRegionSummary, file.path("Data", "StationSamplesDataSourceSeaRegionSummary.csv"))
 
-locationsDataSourceSeaRegion <- unique(stationSamples[, .(DataSourceID, SeaRegionID, Longitude, Latitude)])
+#locationsDataSourceSeaRegion <- unique(stationSamples[, .(DataSourceID, SeaRegionID, Longitude, Latitude)])
 
-locationsDataSourceSummary <- locationsDataSourceSeaRegion[, .N, (DataSourceID)]
+#locationsDataSourceSummary <- locationsDataSourceSeaRegion[, .N, (DataSourceID)]
 
 
 library(ggplot2)
