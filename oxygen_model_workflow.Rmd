@@ -5,7 +5,7 @@ date: "2025-03-03"
 output: html_document
 params: 
   percentile: "05" # change if necessary
-  assessmentYear: 2024
+  assessmentYear: 2025
 ---
 
 ```{r setup, include=FALSE}
@@ -47,6 +47,8 @@ Improve workflow
 # stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 load("data/stationSamples_correctedBathymetry.RData")
 
+stationSamples_with_new_bathymetric$Bathymetric <- stationSamples_with_new_bathymetric$newBathymetric2
+
 range(stationSamples_with_new_bathymetric$Oxygen, na.rm = T)
 range(stationSamples_with_new_bathymetric$HydrogenSulphide, na.rm = T)
 
@@ -56,7 +58,7 @@ stationSamples_with_new_bathymetric <- stationSamples_with_new_bathymetric %>%
   mutate(Oxygen = dplyr::if_else(Oxygen < -100 | Oxygen > 50, NA_real_, Oxygen))
 
 range(stationSamples_with_new_bathymetric$Oxygen, na.rm = T)
-  
+hist(stationSamples_with_new_bathymetric$Oxygen)
 
 ```
 
@@ -102,7 +104,7 @@ stationSamples_with_new_bathymetric %>%
 Make bathymetry complete if necessary
 
 ```{r}
-
+# run script "fixBathymetric.R" manually
 ```
 
 ## Selection of data
@@ -317,7 +319,7 @@ Quartile_all <- wk0 %>%
 ```
 
 ```{r}
-fwrite(Quartile_all, file.path("Output", paste0(prefix, "Oxygen_status.csv")))
+fwrite(Quartile_all, file.path(paste0("Output_", assessmentYear), paste0(prefix, "Oxygen_status.csv")))
 ```
 
 
@@ -343,7 +345,7 @@ plotStatusMaps(bboxEurope, data = wk21,
                limits = "auto"
                )
 
-saveEuropeStatusMap(parameter = paste0(prefix, "Oxygen"))
+saveEuropeStatusMap2(parameter = paste0(prefix, "Oxygen"))
 ```
 ### Trend analysis using Kendall test for each oxygen class
 
@@ -458,14 +460,20 @@ make_oxygen_output <- function(
       KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
       
       # write csv output for EEA tables
-      fwrite(KendallResult.clustered, paste0("output/", prefix, "trend_dissolvedoxygen", cc, ".csv"))
+      fwrite(
+        KendallResult.clustered, 
+        file.path(
+          paste0("output_", assessmentYear), 
+          paste0(prefix, "trend_dissolvedoxygen", cc, ".csv")
+          )
+        )
       
       plotKendallClasses(
         plotdata = KendallResult.clustered, 
         parameterValue = paste("Oxygen"),
-        prefix_title = paste(prefix, classes[cc])
+        prefix_title = paste(prefix, cc)
       )
-      saveEuropeTrendMap(paste(prefix, "Oxygen", cc))
+      saveEuropeTrendMap2(name = paste0(prefix, "Oxygen_", cc))
     }
   }
 

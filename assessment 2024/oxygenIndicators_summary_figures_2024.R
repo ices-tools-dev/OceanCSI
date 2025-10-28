@@ -15,10 +15,12 @@ require(rnaturalearth)
 require(rnaturalearthdata)
 require(ggnewscale)
 
+assessmentYear
+
 # Scripts and data (raw)
 # rm(list = ls())
 
-if(!dir.exists("output_2024")){dir.create("output_2024")} 
+if(!dir.exists(paste0("output_", assessmentYear))){dir.create(paste0("output_", assessmentYear))} 
 
 ETC_ClassNames <- c("DO<2", "DO 2-4", "DO 4-6", "DO>6")
 colorClassificion = read_csv("input/colorClassificationTable.csv")
@@ -62,14 +64,15 @@ worldmap <- ne_countries(scale = 'medium', type = 'map_units',
 #18	BLK	Black Sea						water	marineRegion	MSFDregion_part		77.0331675675044	46.8110900817822
 
 #Load latest  percentile calculations
-Q05_2023 <- read.csv(file = paste0("Output/perc05_2024_Oxygen_status.csv"))
-range(Q05_2023$Year)
+Q05_current <- read.csv(file = file.path(paste0("Output_", assessmentYear), 
+                                      paste0("perc05_", assessmentYear, "_Oxygen_status.csv")))
+range(Q05_current$Year)
 
-Q05_2023 %>% ggplot(aes(x = q)) + geom_histogram()
+Q05_current %>% ggplot(aes(x = q)) + geom_histogram()
 
 # Convert to gridcells
-Q05_2023_grd <- Q05_2023 %>%
-  filter(Year >= 2012 & Year < 2024) %>%
+Q05_current_grd <- Q05_current %>%
+  filter(Year >= assessmentYear-12 & Year < assessmentYear) %>%
   sf::st_as_sf(coords = c('AvgLongitude', 'AvgLatitude'), crs = 4326) %>%
   st_transform(crs = 3035) %>%                                                # This is the new coordinate code used
   mutate(Y = st_coordinates(.)[,2],                                         # We then extract them and assign them
@@ -94,7 +97,7 @@ Q05_2023_grd <- Q05_2023 %>%
 #             oxySE = oxySD/sqrt(oxyn)) %>%
 #   as.data.table() 
 
-cell_mean05perc_BS_grd <- Q05_2023_grd %>%
+cell_mean05perc_BS_grd <- Q05_current_grd %>%
   select(
     Year, 
     # avgDepth = "AvgDepth", 
@@ -327,7 +330,10 @@ fig0
 
  ggsave(
    fig0, 
-   filename = file.path("output_2024", paste0("Fig0_Oxy_classes_map_bs.png")),
+   filename = file.path(
+     paste0("output_", assessmentYear), 
+     paste0("Fig0_Oxy_classes_map_bs.png")
+   ),
    height = 8, 
    width = 8
  )
@@ -339,7 +345,7 @@ write_csv(
            `n observations`,
            `Colour code`
     ), 
-  file = paste0("output_2024/oxy_grid_classes_2023.csv"
+  file = paste0("output_", assessmentYear, "/oxy_grid_classes.csv"
                 )
   )
 
@@ -352,7 +358,7 @@ write_csv(
       `oxy 2-4`,
       `oxy < 2`
     ), 
-  file = paste0("output_2024/oxy_searegion_piechart_2023.csv"
+  file = paste0("output_", assessmentYear, "/oxy_searegion_piechart.csv"
                 )
   )
 
@@ -365,7 +371,7 @@ write_csv(
       `oxy 2-4`,
       `oxy < 2`
     ), 
-  file = paste0("output_2024/oxy_piechart_all_2023.csv"
+  file = paste0("output_", assessmentYear, "/oxy_piechart_all.csv"
                 )
   )
 

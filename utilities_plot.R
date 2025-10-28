@@ -83,6 +83,12 @@ saveEuropeStatusMap <- function(parameter, width = 10, height = 8) {
          height = height, width = width)
 }
 
+# Around ggsave for saving status parameter plots - output per year
+saveEuropeStatusMap2 <- function(parameter, width = 10, height = 8) {
+  ggsave(filename = file.path(paste0("output_", assessmentYear), paste0(parameter, "_status", ".png")),
+         height = height, width = width)
+}
+
 plotKendallClasses <- function(plotdata, parameterValue, prefix_title){
   
   # define color scale for trendplotting
@@ -117,6 +123,16 @@ plotKendallClasses <- function(plotdata, parameterValue, prefix_title){
 saveEuropeTrendMap <- function(parameter, width = 10, height = 8) {
   ggsave(filename = file.path("output", paste0(parameter, "_trend", ".png")),
          height = height, width = width)
+}
+
+
+# Around ggsave for saving status parameter plots - output per yearin separate folder
+saveEuropeTrendMap2 <- function(name, width = 10, height = 8) {
+  ggsave(filename = file.path(
+    paste0("output_", assessmentYear), 
+    paste0(name, ".png")
+  ),
+  height = height, width = width)
 }
 
 
