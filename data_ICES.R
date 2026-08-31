@@ -1,13 +1,15 @@
 library(data.table)
+library(dplyr)
 
 source("utilities_searegion.R")
 
-# Download ICES data from ICES Data Portal at https://data.ices.dk -------------
+# Download ICES data from https://ocean.ices.dk
 
 # Read and Merge station samples -----------------------------------------------
 
-# ICES Bottle and low resolution CTD data --> 21,641,076 (2022) --> 15,389,705 (2024) --> 15,593,053 (2025) station samples
-stationSamplesBOT <- fread(input = "Input/ICES_StationSamples_BOT_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES Bottle and low resolution CTD data --> 21,641,076 (2022) --> 15,389,705 (2024) --> 15,593,053 (2025) --> 15,778,296 (2026) station samples
+names(fread(input = "Input/ICES_StationSamples_BOT_2026-08-28.csv.gz", nrows = 0))
+stationSamplesBOT <- fread(input = "Input/ICES_StationSamples_BOT_2026-08-28.csv.gz", select = c(1,2,4,5,6,7,8,17,18,19,20,21,22,23,24,25,26,27,28,31,32,33,34,35,36,37,38,39,40,41,42,47,48), na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesBOT <- stationSamplesBOT[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -22,33 +24,34 @@ stationSamplesBOT <- stationSamplesBOT[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   Bot..Depth..m.,
   DataSourceID = 1,
   Depth..m. = Depth..ADEPZZ01_ULAA...m.,
-  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA.,
+  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA...m.,
   Temperature..degC. = Temperature..TEMPPR01_UPAA...degC.,
-  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA.,
+  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA...degC.,
   Practical.Salinity..dmnless. = Salinity..PSALPR01_UUUU...dmnless.,
-  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU.,
+  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU...dmnless.,
   Dissolved.Oxygen..ml.l. = Oxygen..DOXYZZXX_UMLL...ml.l.,
-  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL.,
+  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL...ml.l.,
   Phosphate.Phosphorus..PO4.P...umol.l. = Phosphate..PHOSZZXX_UPOX...umol.l.,
-  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX.,
+  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX...umol.l.,
   Total.Phosphorus..P...umol.l. = Total.Phosphorus..TPHSZZXX_UPOX...umol.l.,
-  QV.ODV.Total.Phosphorus..P...umol.l. = QV.ODV.Total.Phosphorus..TPHSZZXX_UPOX.,
+  QV.ODV.Total.Phosphorus..P...umol.l. = QV.ODV.Total.Phosphorus..TPHSZZXX_UPOX...umol.l.,
   Nitrate.Nitrogen..NO3.N...umol.l. = Nitrate..NTRAZZXX_UPOX...umol.l.,
-  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX.,
+  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX...umol.l.,
   Nitrite.Nitrogen..NO2.N...umol.l. = Nitrite..NTRIZZXX_UPOX...umol.l.,
-  QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l. = QV.ODV.Nitrite..NTRIZZXX_UPOX.,
+  QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l. = QV.ODV.Nitrite..NTRIZZXX_UPOX...umol.l.,
   Ammonium.Nitrogen..NH4.N...umol.l. = Ammonium..AMONZZXX_UPOX...umol.l.,
-  QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l. = QV.ODV.Ammonium..AMONZZXX_UPOX.,
+  QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l. = QV.ODV.Ammonium..AMONZZXX_UPOX...umol.l.,
   Total.Nitrogen..N...umol.l. = Total.Nitrogen..NTOTZZXX_UPOX...umol.l.,
-  QV.ODV.Total.Nitrogen..N...umol.l. = QV.ODV.Total.Nitrogen..NTOTZZXX_UPOX.,
-  Hydrogen.Sulphide..H2S.S...umol.l. = Hydrogen.SulphIDe..H2SXZZXX_UPOX...umol.l.,
-  QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. = QV.ODV.Hydrogen.SulphIDe..H2SXZZXX_UPOX.,
+  QV.ODV.Total.Nitrogen..N...umol.l. = QV.ODV.Total.Nitrogen..NTOTZZXX_UPOX...umol.l.,
+  Hydrogen.Sulphide..H2S.S...umol.l. = Hydrogen.Sulphide..H2SXZZXX_UPOX...umol.l.,
+  QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l. = QV.ODV.Hydrogen.Sulphide..H2SXZZXX_UPOX...umol.l.,
   Chlorophyll.a..ug.l. = Chlorophyll.a..CPHLZZXX_UGPL...ug.l.,
-  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
+  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL...ug.l.
   )]
 
-# ICES high resolution CTD data --> 155,897,705 (2024) --> 129,075,486 (2025) station samples
-stationSamplesCTD <- fread(input = "Input/ICES_StationSamples_CTD_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES high resolution CTD data --> 155,897,705 (2024) --> 129,075,486 (2025) --> 133,493,520 (2026) station samples
+names(fread(input = "Input/ICES_StationSamples_CTD_2026-08-28.csv.gz", nrows = 0))
+stationSamplesCTD <- fread(input = "Input/ICES_StationSamples_CTD_2026-08-28.csv.gz", select = c(1,2,4,5,6,7,17,18,19,20,21,22,23,24,25,26,29,30,33,34), na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesCTD <- stationSamplesCTD[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -63,23 +66,24 @@ stationSamplesCTD <- stationSamplesCTD[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   Bot..Depth..m.,
   DataSourceID = 2,
   Depth..m. = Depth..ADEPZZ01_ULAA...m.,
-  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA.,
+  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA...m.,
   Temperature..degC. = Temperature..TEMPPR01_UPAA...degC.,
-  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA.,
+  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA...degC.,
   Practical.Salinity..dmnless. = Salinity..PSALPR01_UUUU...dmnless.,
-  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU.,
+  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU...dmnless.,
   Dissolved.Oxygen..ml.l. = Oxygen..DOXYZZXX_UMLL...ml.l.,
-  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL.,
+  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL...ml.l.,
   Phosphate.Phosphorus..PO4.P...umol.l. = Phosphate..PHOSZZXX_UPOX...umol.l.,
-  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX.,
+  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX...umol.l.,
   Nitrate.Nitrogen..NO3.N...umol.l. = Nitrate..NTRAZZXX_UPOX...umol.l.,
-  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX.,
+  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX...umol.l.,
   Chlorophyll.a..ug.l. = Chlorophyll.a..CPHLZZXX_UGPL...ug.l.,
-  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
+  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL...ug.l.
 )]
 
-# ICES Pump data --> 2,997,668 (2022) --> 2,997,668 (2024) --> 2,997,668 (2025) station samples
-stationSamplesPMP <- fread(input = "Input/ICES_StationSamples_PMP_2025-07-18.csv.gz", na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
+# ICES Pump data --> 2,997,668 (2022) --> 2,997,668 (2024) --> 2,997,668 (2025) --> 4,528,147 (2026) station samples
+names(fread(input = "Input/ICES_StationSamples_PMP_2026-08-28.csv.gz", nrows = 0))
+stationSamplesPMP <- fread(input = "Input/ICES_StationSamples_PMP_2026-08-28.csv.gz", select = c(1,2,4,5,6,7,8,16,17,18,19,20,21,22,23,24,25,26,27,30,31,32,33,34,35,36,37,38,39,44,45), na.strings = "NULL", stringsAsFactors = FALSE, header = TRUE, check.names = TRUE)
 stationSamplesPMP <- stationSamplesPMP[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss, 1, 4)) >= 1980, .(
   Cruise,
   Station,
@@ -94,42 +98,42 @@ stationSamplesPMP <- stationSamplesPMP[as.integer(substr(yyyy.mm.ddThh.mm.ss.sss
   Bot..Depth..m.,
   DataSourceID = 3,
   Depth..m. = Depth..ADEPZZ01_ULAA...m.,
-  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA.,
+  QV.ODV.Depth..m. = QV.ODV.Depth..ADEPZZ01_ULAA...m.,
   Temperature..degC. = Temperature..TEMPPR01_UPAA...degC.,
-  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA.,
+  QV.ODV.Temperature..degC. = QV.ODV.Temperature..TEMPPR01_UPAA...degC.,
   Practical.Salinity..dmnless. = Salinity..PSALPR01_UUUU...dmnless.,
-  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU.,
+  QV.ODV.Practical.Salinity..dmnless. = QV.ODV.Salinity..PSALPR01_UUUU...dmnless.,
   Dissolved.Oxygen..ml.l. = Oxygen..DOXYZZXX_UMLL...ml.l.,
-  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL.,
+  QV.ODV.Dissolved.Oxygen..ml.l. = QV.ODV.Oxygen..DOXYZZXX_UMLL...ml.l.,
   Phosphate.Phosphorus..PO4.P...umol.l. = Phosphate..PHOSZZXX_UPOX...umol.l.,
-  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX.,
+  QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l. = QV.ODV.Phosphate..PHOSZZXX_UPOX...umol.l.,
   Total.Phosphorus..P...umol.l. = Total.Phosphorus..TPHSZZXX_UPOX...umol.l.,
-  QV.ODV.Total.Phosphorus..P...umol.l. = QV.ODV.Total.Phosphorus..TPHSZZXX_UPOX.,
+  QV.ODV.Total.Phosphorus..P...umol.l. = QV.ODV.Total.Phosphorus..TPHSZZXX_UPOX...umol.l.,
   Nitrate.Nitrogen..NO3.N...umol.l. = Nitrate..NTRAZZXX_UPOX...umol.l.,
-  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX.,
+  QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l. = QV.ODV.Nitrate..NTRAZZXX_UPOX...umol.l.,
   Nitrite.Nitrogen..NO2.N...umol.l. = Nitrite..NTRIZZXX_UPOX...umol.l.,
-  QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l. = QV.ODV.Nitrite..NTRIZZXX_UPOX.,
+  QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l. = QV.ODV.Nitrite..NTRIZZXX_UPOX...umol.l.,
   Ammonium.Nitrogen..NH4.N...umol.l. = Ammonium..AMONZZXX_UPOX...umol.l.,
-  QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l. = QV.ODV.Ammonium..AMONZZXX_UPOX.,
+  QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l. = QV.ODV.Ammonium..AMONZZXX_UPOX...umol.l.,
   Total.Nitrogen..N...umol.l. = Total.Nitrogen..NTOTZZXX_UPOX...umol.l.,
-  QV.ODV.Total.Nitrogen..N...umol.l. = QV.ODV.Total.Nitrogen..NTOTZZXX_UPOX.,
+  QV.ODV.Total.Nitrogen..N...umol.l. = QV.ODV.Total.Nitrogen..NTOTZZXX_UPOX...umol.l.,
   Chlorophyll.a..ug.l. = Chlorophyll.a..CPHLZZXX_UGPL...ug.l.,
-  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL.
+  QV.ODV.Chlorophyll.a..ug.l. = QV.ODV.Chlorophyll.a..CPHLZZXX_UGPL...ug.l.
 )]
 
-# Combined data tables --> 147,666,207 (2025) station samples
+# Combined data tables --> 147,666,207 (2025) --> 153,799,963 (2026) station samples
 stationSamples <- rbindlist(list(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP), use.names = TRUE, fill = TRUE)
 
 # Free memory
 rm(stationSamplesBOT, stationSamplesCTD, stationSamplesPMP)
 
-# Extract unique locations i.e. longitude/latitude pairs --> 3,317,080 (2025) locations
+# Extract unique locations i.e. longitude/latitude pairs --> 3,317,080 (2025) --> 4,721,225 (2026) locations
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
-# Classify locations into sea regions --> 2,897,755 (2024) --> 2,901,653 (2025) locations
+# Classify locations into sea regions --> 2,897,755 (2024) --> 2,901,653 (2025) --> 4,218,754 (2026) locations
 locations <- classify_locations_into_searegions(locations)
 
-# Merge locations incl. sea regions back into station samples - getting rid of station samples not classified --> 46,409,020 (2024) --> 46,963,430 (2025) station samples
+# Merge locations incl. sea regions back into station samples - getting rid of station samples not classified --> 46,409,020 (2024) --> 46,963,430 (2025) --> 50,014,810 (2026) station samples
 stationSamples <- locations[stationSamples, on = .(Longitude..degrees_east., Latitude..degrees_north.), nomatch = 0]
 
 # Output station samples

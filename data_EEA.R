@@ -1,4 +1,5 @@
 library(data.table)
+library(dplyr)
 
 source("utilities_searegion.R")
 
@@ -7,25 +8,25 @@ source("utilities_searegion.R")
 # or
 # https://discodata.eea.europa.eu
 
-# Read monitoring_sites --> 71,843 (2022) --> 144,586 (2024) 
-monitoring_sites <- fread("Input/Waterbase_v2024_1_S_WISE6_SpatialObject_DerivedData.csv.gz")
+# Read monitoring_sites --> 71,843 (2022) --> 144,586 (2024) --> 90,859 (2025)
+monitoring_sites <- fread("Input/Waterbase_v2025_1_S_WISE6_SpatialObject_DerivedData.csv.gz")
 
 # N.B! Unfortunately the monitoringSiteIdentifier with longitude and latitude aren't unique
 # which forces us to identify and remove duplicates.
 
-# Remove empty monitoringSiteIdentifier, lat or lon --> 55,943 (2022) --> 118,566 (2024)
+# Remove empty monitoringSiteIdentifier, lat or lon --> 55,943 (2022) --> 118,566 (2024) --> 69,821 (2025)
 monitoring_sites <- monitoring_sites[!monitoringSiteIdentifier == "" & !is.na(lat) & !is.na(lon)]
 
-# Calculate unique monitoring_sites --> 55,820 (2022) --> 63,930 (2024)
+# Calculate unique monitoring_sites --> 55,820 (2022) --> 63,930 (2024) --> 68,539 (2025)
 uniqueN(monitoring_sites[, .(monitoringSiteIdentifier)])
 
-# Remove duplicates and select fields needed --> 55820 (2022) --> 63,930 (2024)
+# Remove duplicates and select fields needed --> 55820 (2022) --> 63,930 (2024) --> 68,539 (2025)
 monitoring_sites <- monitoring_sites[!duplicated(monitoring_sites, by = c("monitoringSiteIdentifier")), .(monitoringSiteIdentifier, lon, lat)]
 
-# Read observations --> 61,793,906 (2022) --> 81,901,637 (2024) observations
-observations <- fread("Input/Waterbase_v2024_1_T_WISE6_DisaggregatedData.csv.gz")
+# Read observations --> 61,793,906 (2022) --> 81,901,637 (2024) --> 96,597,294 (2025) observations
+observations <- fread("Input/Waterbase_v2025_1_T_WISE6_DisaggregatedData.csv.gz")
 
-# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196,202 (2022) --> 210,832 (2025) observations
+# Filter observations by parameters of interest, water body category of interest, making sure a depth exists and result is confirmed correct --> 196,202 (2022) --> 210,832 (2025) --> 221,624 (2026) observations
 observations <- observations[
     observedPropertyDeterminandLabel %in% c('Water temperature','Salinity','Dissolved oxygen','Phosphate','Total phosphorus','Nitrate','Nitrite','Ammonium','Total nitrogen','Chlorophyll a')
   &
@@ -41,7 +42,7 @@ observations <- observations[
 # View observations parameter units
 observations[, .N, by = .(observedPropertyDeterminandLabel, resultUom)]
 
-# Dcast into samples --> 40,801 (2022) --> 43,687 (2025) samples 
+# Dcast into samples --> 40,801 (2022) --> 43,687 (2025) --> 45,137 (2026) samples 
 samples <- dcast(observations, monitoringSiteIdentifier + phenomenonTimeSamplingDate + parameterSampleDepth ~ observedPropertyDeterminandLabel, value.var = "resultObservedValue", fun.aggregate = mean)
 
 # Merge stations i.e. monitoring sites (latitude longitude) into samples
@@ -89,7 +90,7 @@ stationSamples <- stationSamples[!is.na(Longitude..degrees_east.) | !is.na(Latit
 # Free memory
 rm(monitoring_sites, observations, samples)
 
-# Extract unique locations i.e. longitude/latitude pairs --> 843 (2022) --> 883 (2024) positions
+# Extract unique locations i.e. longitude/latitude pairs --> 843 (2022) --> 883 (2024) --> 905 (2025) positions
 locations <- unique(stationSamples[, .(Longitude..degrees_east., Latitude..degrees_north.)])
 
 # Classify locations into sea regions

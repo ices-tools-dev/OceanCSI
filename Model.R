@@ -2,7 +2,7 @@ library(data.table)
 
 source("utilities_plot.R")
 
-assessmentYear <- 2024
+assessmentYear <- 2025
 
 #load(file.path("Output", "StationSamples.RData"))
 stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
