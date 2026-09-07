@@ -36,6 +36,65 @@ data("countriesLow")
 world <- fortify(countriesLow) 
 
 # function for plotting status per parameter
+plotStatusGridMaps <- function(data, parameter,gridtype=""){
+  # Read grid
+  if (gridtype=="10x10"){
+    grid <- vect("Input/assessment_grid_10_countries.shp")[, "CellCode"]
+  }else{
+    grid <- vect("Input/assessment_grid_100_20_country.shp")[, "GRIDCODE"]
+    names(grid) <- "CellCode"
+  }
+  data[, Class := fcase(
+    value_mean < 0.5, "<0.5",
+    value_mean >= 0.5 & value_mean < 1.5, "0.5 < 1.5",
+    value_mean >= 1.5 & value_mean < 3, "1.5 < 3.0",
+    value_mean >= 3 & value_mean < 6, "3.0 < 6.0",
+    value_mean >= 6, ">= 6.0"
+  )]
+  
+  data[, Class := factor(Class, levels =
+                           c("<0.5", "0.5 < 1.5", "1.5 < 3.0", "3.0 < 6.0", ">= 6.0")
+  )]
+  
+  plot_data <- merge(grid, data, by = "CellCode", all.x = T)
+  
+  if(parameter=="CHL"){
+    units<- expression("CHL-A ("*mu*g/L*")")
+  }else if (parameter=="DIN") {
+    units<- expression("DIN ("*mu*mol/L*")")
+  }else {
+    units<- expression("DIP ("*mu*mol/L*")")
+  }
+  plot_data<-st_as_sf(plot_data)
+  p <- ggplot2::ggplot() +
+    geom_sf(data = plot_data, aes(fill = Class), color = NA) +
+    scale_fill_manual(
+      values = c("<0.5" = "#faea99",
+                 "0.5 < 1.5" = "#f7c416",
+                 "1.5 < 3.0" = "#f8983b",
+                 "3.0 < 6.0" = "#e56c36",
+                 ">= 6.0" = "#b83332"), 
+      na.value = "#FAF9F6", 
+      name = units,
+      labels = c("<0.5", "0.5 < 1.5", "1.5 < 3.0", "3.0 < 6.0", expression("">="6.0"), "No Data")
+    ) +
+    labs(title = paste0("Average surface concentration ",parameter," (", assessmentYear-6, " - ",assessmentYear,")"),
+    ) +
+    theme_minimal()+
+    theme(
+      legend.position = "bottom",
+      legend.box.spacing = unit(1,"lines"),
+      legend.title.position = "top",
+      legend.title = element_text(hjust = 0.5,size=24),
+      legend.text = element_text(size=22),
+      plot.title = element_text(hjust = 0.5),
+      text = element_text(size = 20),
+      axis.text = element_blank(),
+      panel.grid = element_blank(),
+      panel.background = element_rect(fill="grey92")
+    )
+}
+
 plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, invJet = TRUE, limits) {
 
   # create color scales for plotting, depending on whether good status is associated with high or low values
@@ -78,9 +137,15 @@ plotStatusMaps <- function(bboxEurope, data, xlong, ylat, parameterValue, Year, 
 }
 
 # Around ggsave for saving status parameter plots 
-saveEuropeStatusMap <- function(parameter, width = 10, height = 8) {
-  ggsave(filename = file.path("output", paste0(parameter, "_status", ".png")),
-         height = height, width = width)
+saveEuropeStatusMap <- function(parameter, width = 10, height = 8, gridtype="") {
+  
+  if (gridtype=="10x10"){
+  ggsave(filename = file.path(paste0("output/",parameter, "_status_10x10", ".tif")),
+         height = height, width = width)}
+  else{
+    ggsave(filename = file.path(paste0("output/",parameter, "_status", ".tif")),
+           height = height, width = width)
+  }
 }
 
 plotKendallClasses <- function(plotdata, parameterValue){
@@ -113,10 +178,70 @@ plotKendallClasses <- function(plotdata, parameterValue){
       axis.ticks = element_blank())
 }
 
+plotTrendsGridMaps <- function(pre,post,indicator){
+  prePlot<-ggplot() +
+    geom_sf(data = pre, aes(fill = trend), color = NA) +
+    scale_fill_manual(
+      values=c("decreasing"="#0f8c7d",
+               "increasing"="#f7c416",
+               "no trend"="#bcbdbf"),
+      na.value = "#FAF9F6", 
+      name="",
+      labels = c("Decreasing", "Increasing", "No trend", "No Data"))+
+    labs(
+      title = paste0("Trends in ocean surface \n",indicator," (",unique(na.omit(pre$minY))," - ",unique(na.omit(pre$maxY)),")")
+    ) +
+    theme_minimal()+
+    theme(
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.title = element_text(hjust = 0.5,size=24),
+      plot.title = element_text(hjust = 0.5,size=24),
+      legend.text = element_text(size=22),
+      text = element_text(size = 24),
+      axis.text = element_blank(),
+      panel.grid = element_blank(),
+      panel.background = element_rect(fill="grey92"))
+  
+  postPlot<-ggplot() +
+    geom_sf(data = post, aes(fill = trend), color = NA) +
+    scale_fill_manual(
+      values=c("decreasing"="#0f8c7d",
+               "increasing"="#f7c416",
+               "no trend"="#bcbdbf"),
+      na.value = "#FAF9F6", 
+      name="",
+      labels = c("Decreasing", "Increasing", "No trend", "No Data"))+
+    labs(
+      title = paste0("Trends in ocean surface \n",indicator," (",unique(na.omit(post$minY))," - ",unique(na.omit(post$maxY)),")")
+    ) +
+    theme_minimal()+
+    theme(
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.title = element_text(hjust = 0.5,size=24),
+      plot.title = element_text(hjust = 0.5,size=24),
+      legend.text = element_text(size=22),
+      text = element_text(size = 24),
+      axis.text = element_blank(),
+      panel.grid = element_blank(),
+      panel.background = element_rect(fill="grey92"))
+  
+  t<-(prePlot+postPlot+plot_layout(guides="collect")) & theme(legend.position = "bottom")
+}
+
+
+
+
 # Around ggsave for saving status parameter plots 
-saveEuropeTrendMap <- function(parameter, width = 10, height = 8) {
-  ggsave(filename = file.path("output", paste0(parameter, "_trend", ".png")),
-         height = height, width = width)
+saveEuropeTrendMap <- function(parameter, width = 10, height = 8, gridtype="") {
+  if (gridtype=="10x10"){
+  ggsave(filename = file.path("output", paste0(parameter, "_trend_10x10", ".tif")),
+         height = height, width = width)}
+  else{
+    ggsave(filename = file.path("output", paste0(parameter, "_trend", ".tif")),
+           height = height, width = width)
+  }
 }
 
 
