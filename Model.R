@@ -7,42 +7,6 @@ assessmentYear <- 2025
 #load(file.path("Output", "StationSamples.RData"))
 stationSamples <- fread(file.path("Data", "StationSamples.csv.gz"))
 
-stationSamples <- stationSamples[, .(
-  DataSourceID,
-  SeaRegionID,
-  ClusterID,  
-  Latitude = Latitude..degrees_north.,
-  Longitude = Longitude..degrees_east.,
-  Year,
-  Month,
-  Sounding = Bot..Depth..m.,
-  Bathymetric = BathymetricAvg, 
-  Depth = Depth..m.,
-  DepthQ = QV.ODV.Depth..m.,
-  Temperature = Temperature..degC.,
-  TemperatureQ = QV.ODV.Temperature..degC.,
-  Salinity = Practical.Salinity..dmnless.,
-  SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
-  Oxygen = Dissolved.Oxygen..ml.l.,
-  OxygenQ = QV.ODV.Dissolved.Oxygen..ml.l.,
-  Phosphate = Phosphate.Phosphorus..PO4.P...umol.l.,
-  PhosphateQ = QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l.,
-  TotalPhosphorus = Total.Phosphorus..P...umol.l.,
-  TotalPhosphorusQ = QV.ODV.Total.Phosphorus..P...umol.l.,
-  Nitrate = Nitrate.Nitrogen..NO3.N...umol.l.,
-  NitrateQ = QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l.,
-  Nitrite = Nitrite.Nitrogen..NO2.N...umol.l.,
-  NitriteQ = QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l.,
-  Ammonium = Ammonium.Nitrogen..NH4.N...umol.l.,
-  AmmoniumQ = QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
-  TotalNitrogen = Total.Nitrogen..N...umol.l.,
-  TotalNitrogenQ = QV.ODV.Total.Nitrogen..N...umol.l.,
-  HydrogenSulphide = Hydrogen.Sulphide..H2S.S...umol.l.,
-  HydrogenSulphideQ = QV.ODV.Hydrogen.Sulphide..H2S.S...umol.l.,
-  Chlorophyll = Chlorophyll.a..ug.l.,
-  ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
-  )]
-
 # Station Samples for the Oxygen Indicator
 stationSamplesOxygen <- stationSamples[!is.na(Oxygen) | !is.na(HydrogenSulphide), .(
   DataSourceID,
@@ -62,6 +26,41 @@ stationSamplesOxygen <- stationSamples[!is.na(Oxygen) | !is.na(HydrogenSulphide)
   HydrogenSulphideQ
 )]
 fwrite(stationSamplesOxygen, file.path("Data", "StationSamplesOxygen.csv.gz"))
+
+# Station Samples for the other indicators
+stationSamples <- stationSamples[, .(
+  DataSourceID,
+  SeaRegionID,
+  ClusterID, 
+  Cruise,
+  Station,  
+  Latitude = Latitude..degrees_north.,
+  Longitude = Longitude..degrees_east.,
+  Year,
+  Month,
+  Sounding = Bot..Depth..m.,
+  Bathymetric = BathymetricAvg, 
+  Depth = Depth..m.,
+  DepthQ = QV.ODV.Depth..m.,
+  Temperature = Temperature..degC.,
+  TemperatureQ = QV.ODV.Temperature..degC.,
+  Salinity = Practical.Salinity..dmnless.,
+  SalinityQ = QV.ODV.Practical.Salinity..dmnless.,
+  Phosphate = Phosphate.Phosphorus..PO4.P...umol.l.,
+  PhosphateQ = QV.ODV.Phosphate.Phosphorus..PO4.P...umol.l.,
+  TotalPhosphorus = Total.Phosphorus..P...umol.l.,
+  TotalPhosphorusQ = QV.ODV.Total.Phosphorus..P...umol.l.,
+  Nitrate = Nitrate.Nitrogen..NO3.N...umol.l.,
+  NitrateQ = QV.ODV.Nitrate.Nitrogen..NO3.N...umol.l.,
+  Nitrite = Nitrite.Nitrogen..NO2.N...umol.l.,
+  NitriteQ = QV.ODV.Nitrite.Nitrogen..NO2.N...umol.l.,
+  Ammonium = Ammonium.Nitrogen..NH4.N...umol.l.,
+  AmmoniumQ = QV.ODV.Ammonium.Nitrogen..NH4.N...umol.l.,
+  TotalNitrogen = Total.Nitrogen..N...umol.l.,
+  TotalNitrogenQ = QV.ODV.Total.Nitrogen..N...umol.l.,
+  Chlorophyll = Chlorophyll.a..ug.l.,
+  ChlorophyllQ = QV.ODV.Chlorophyll.a..ug.l.
+)]
 
 # Station Samples Summary
 # To Do - Make a summary output per indicator taking the indicator criteria into account 
@@ -284,60 +283,145 @@ saveEuropeTrendMap("Ammonium")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
+#Assessment should be done for both EEA grid types:
+# 10x10
+# 100+20
+gridtype<-"10x10"
+
 # Filter stations rows and columns --> SeaRegionID, ClusterID, StationID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate|Nitrite|Ammonium) & (NitrateQ != 4 & NitrateQ != 8 & NitriteQ != 4 & NitriteQ != 8 & AmmoniumQ != 4 & AmmoniumQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium)]
-coalesce <- function(x) if (all(is.na(x))) NA else sum(x, na.rm = TRUE)
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Nitrate|Nitrite|Ammonium) & (NitrateQ != 4 & NitrateQ != 8 & NitriteQ != 4 & NitriteQ != 8 & AmmoniumQ != 4 & AmmoniumQ != 8), .(SeaRegionID, ClusterID, Cruise, Station, Latitude, Longitude, Year, Month, Depth, Temperature, Salinity, Nitrate, Nitrite, Ammonium)]
+coalesce <- function(x) if (all(is.na(x))| is.na(x[1])) NA else sum(x, na.rm = TRUE)
 wk$DIN <- apply(wk[, c("Nitrate", "Nitrite", "Ammonium")], 1, coalesce)
+wk <- wk[!is.na(DIN)]
 
-# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgDIN, MinDIN, MaxDIN, CountSamples
-wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgDIN = mean(DIN), MinDIN = min(DIN), MaxDIN = max(DIN), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
+# Filter outliers applying quantile limits by SeaRegionID; do not linclude the limit value
+wk <- wk[, `:=`(limit_min = quantile(DIN, 0.001),
+                limit_max = quantile(DIN, 0.999)),
+         by = SeaRegionID]
+wk <- wk[DIN > limit_min & DIN < limit_max]
 
-# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgDIN, MinMinDIN, MaxMaxDIN, SumCountSamples
-wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
+# Calculate means per SeaRegionID, Cruise, Station, month, and year.
+wk <- wk[, .(
+  Latitude = mean(Latitude),
+  Longitude = mean(Longitude),
+  DIN = mean(DIN),
+  logDIN = mean(log(DIN))
+), by = .(SeaRegionID, Cruise, Station, Year, Month)]
 
-# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgDIN, MinMinMinDIN, MaxMaxMaxDIN, SumCountSamples
-wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgDIN = mean(AvgDIN), MinDIN = min(MinDIN), MaxDIN = max(MaxDIN), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+# Classify locations into EEA gridcells
+source("utilities_grid.R")
+locations <- unique(wk[, .(Cruise, Station, Longitude, Latitude)])
+locations <- classify_locations_into_gridcells(locations,gridtype)
 
-fwrite(wk2, file.path("Output", "DIN_status.csv"))
+wk <- locations[wk, on = .(Cruise, Station, Longitude, Latitude), nomatch = 0]
 
-# plot average status for last 5 years 
-wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(DIN = mean(AvgDIN)), list(ClusterID, AvgLongitude, AvgLatitude)]
-plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
-               parameterValue = "DIN", 
-               invJet = F, 
-               limits = "auto")
-saveEuropeStatusMap(parameter = "DIN")
+wk[, Year := factor(Year, levels = sort(unique(Year)))]
+wk[, Month := factor(Month, levels = sort(unique(Month)))]
 
-# trend analysis using Kendall test
-yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[
-  ClusterID %in% yearcriteria][
-    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
-      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
-        NrYears >=5]
-wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
-l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
-timeserieslist <- lapply(
-  l, function(x) xts::xts(x[,"AvgDIN"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
-KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
-df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
-names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
-df.KendallResult$ClusterID <- as.integer(names(KendallResult))
-KendallResult.clustered <- df.KendallResult %>% 
-  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
-  filter(!is.na(S)) %>%
-  mutate(trend = case_when(
-    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
-    .$sl <= 0.05 & .$S > 0 ~ "increasing",
-    .$sl > 0.05 ~ "no trend")
-  ) %>%
-  mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+# Divide the data in three datasets, each one will be treated differently.
+# Min 2 years min 2 month --> emmeans by year and month --- LEVEL 0
+wk0 <- wk[, n := uniqueN(Month), by = .(SeaRegionID, CellCode, Year)][n != 1]
+wk0 <- wk0[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n != 1][, n := NULL]
 
-fwrite(KendallResult.clustered, file.path("Output", "DIN_trend.csv"))
+# Min 2 years x months --> emmeans only by year
+wk <- wk[!wk0, on = names(wk0)] # Same as an anti_join --- LEVEL 1
+wk1 <- wk[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n > 1][, n := NULL]
 
-plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "DIN")
-saveEuropeTrendMap("DIN")
+# Only 1 year --> arithmetic mean --- LEVEL 2
+wk2 <- wk[!wk1, on = names(wk1)] # Same as an anti_join
+
+# Apply linear model-emmeans or arithmetic means depending on the data
+source("utilities_average.R")
+wk0_emmeans <- linear_model_average(df=wk0, level=0, indicator="DIN")
+wk1_emmeans <- linear_model_average(df=wk1, level=1, indicator="DIN")
+wk2_means <- linear_model_average(df=wk2, level=2, indicator="DIN")
+
+wk <- rbindlist(list(wk0_emmeans, wk1_emmeans, wk2_means), use.names = T, fill = T)
+
+setnames(wk, "avg", "logValue")
+setcolorder(wk, c("CellCode", "Year", "SE", "df", "lower.CL", "upper.CL", "Value", "logValue", "type"))
+
+if (gridtype=="10x10"){
+  fwrite(wk, file.path("Output", "DIN_status_10x10.csv"))
+}else{
+  fwrite(wk, file.path("Output", "DIN_status.csv"))
+}
+
+# plot average status for last 6 years
+wk21 <- wk[Year > assessmentYear - 6 & Year <= assessmentYear]
+wk21 <- wk21[, .(log_mean = mean(logValue, na.rm = T), sd= sd(logValue,na.rm = T),value_mean=mean(Value,na.rm=T)), by = CellCode]
+
+plotStatusGridMaps(data = wk21, parameter = "DIN", gridtype=gridtype)
+saveEuropeStatusMap(parameter = "DIN",gridtype=gridtype)
+
+
+# trend analysis using linear model and Kendall test
+# Divide the data in two periods
+wk31<- wk[Year < 2000]
+period<-"PRE2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk31[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk31 <- wk31[CellCode %in% requirements[[1]]]
+wk31[, NrYears := .N, by = .(CellCode)]
+
+minY_pre<-min(wk31$Year,na.rm = T)
+maxY_pre<-max(wk31$Year,na.rm = T)
+
+nrYears_pre <- unique(wk31[, .(CellCode,NrYears)])
+
+
+general_trends_pre<-linear_model_trends(df=wk31,indicator="din",nrYears=nrYears_pre)
+general_trends_pre$minY <- minY_pre
+general_trends_pre$maxY <- maxY_pre
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_pre, file.path("Output", "DIN_trend_10x10_PRE2000.csv"))
+}else{
+  fwrite(general_trends_pre, file.path("Output", "DIN_trend_PRE2000.csv"))
+}
+
+# Repeat process for second period
+
+# Divide the data in two periods
+wk32<- wk[Year >= 2000]
+period<-"POST2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk32[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk32 <- wk32[CellCode %in% requirements[[1]]]
+wk32[, NrYears := .N, by = .(CellCode)]
+
+minY_post<-min(wk32$Year,na.rm = T)
+maxY_post<-max(wk32$Year,na.rm = T)
+
+nrYears_post <- unique(wk32[, .(CellCode,NrYears)])
+
+
+general_trends_post<-linear_model_trends(df=wk32,indicator="din",nrYears=nrYears_post)
+general_trends_post$minY <- minY_post
+general_trends_post$maxY <- maxY_post
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_post, file.path("Output", "DIN_trend_10x10_POST2000.csv"))
+}else{
+  fwrite(general_trends_post, file.path("Output", "DIN_trend_POST2000.csv"))
+}
+
+
+# Plot trends of both periods
+plot_data_pre<-merge(st_as_sf(grid),general_trends_pre, by = "CellCode", all.x = TRUE)
+plot_data_pre<-plot_data_pre%>%
+  dplyr::mutate(trend = factor(trend))
+
+plot_data_post<-merge(st_as_sf(grid),general_trends_post, by = "CellCode", all.x = TRUE)
+plot_data_post<-plot_data_post%>%
+  dplyr::mutate(trend = factor(trend))
+
+plotTrendsGridMaps(pre=plot_data_pre, post=plot_data_post, indicator="DIN")
+
+saveEuropeTrendMap(indicator = "DIN", gridtype=gridtype)
+
 
 # Total Nitrogen (Annual) ------------------------------------------------------
 #   Parameters: [N]
@@ -406,58 +490,144 @@ saveEuropeTrendMap("TotalNitrogen")
 #     January - February for other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
+#Assessment should be done for both EEA grid types:
+# 10x10
+# 100+20
+gridtype<-"10x10"
+
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Year, Depth, Temperature, Salinity, Phosphate
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Phosphate) & (PhosphateQ != 4 & PhosphateQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Phosphate)]
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Longitude > 15, Month >= 1 & Month <= 3, Month >= 1 & Month <= 2) & !is.na(Phosphate) & (PhosphateQ != 4 & PhosphateQ != 8), .(SeaRegionID, ClusterID, Cruise, Station, Latitude, Longitude, Year, Month, Depth, Temperature, Salinity, Phosphate)]
 
-# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgPhosphate, MinPhosphate, MaxPhosphate, CountSamples
-wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgPhosphate = mean(Phosphate), MinPhosphate = min(Phosphate), MaxPhosphate = max(Phosphate), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
+# Filter outliers applying quantile limits by SeaRegionID; do not linclude the limit value
+wk <- wk[, `:=`(limit_min = quantile(Phosphate, 0.001),
+                limit_max = quantile(Phosphate, 0.999)),
+         by = SeaRegionID]
+wk <- wk[Phosphate > limit_min & Phosphate < limit_max]
 
-# Calculate station annual average --> SeaRegionID, ClusterID, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgPhosphate, MinMinPhosphate, MaxMaxPhosphate, SumCountSamples
-wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
+# Calculate means per SeaRegionID, Cruise, Station, month, and year.
+wk <- wk[, .(
+  Latitude = mean(Latitude),
+  Longitude = mean(Longitude),
+  Phosphate = mean(Phosphate),
+  minPhosphate = min(Phosphate),
+  maxPhosphate = max(Phosphate),
+  logPhosphate = mean(log(Phosphate))
+), by = .(SeaRegionID, Cruise, Station, Year, Month)]
 
-# Calculate cluster annual average --> SeaRegionID, ClusterID, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgPhosphate, MinMinMinPhosphate, MaxMaxMaxPhosphate, SumSumCountSamples
-wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgPhosphate = mean(AvgPhosphate), MinPhosphate = min(MinPhosphate), MaxPhosphate = max(MaxPhosphate), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+# Classify locations into EEA gridcells
+source("utilities_grid.R")
+locations <- unique(wk[, .(Cruise, Station, Longitude, Latitude)])
+locations <- classify_locations_into_gridcells(locations,gridtype)
 
-fwrite(wk2, file.path("Output", "Phosphate_status.csv"))
+wk <- locations[wk, on = .(Cruise, Station, Longitude, Latitude), nomatch = 0]
 
-# plot average status for last 5 years 
-wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Phosphate = mean(AvgPhosphate)), list(ClusterID, AvgLongitude, AvgLatitude)]
-plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
-               parameterValue = "Phosphate", 
-               invJet = F, 
-               limits = "auto")
-saveEuropeStatusMap(parameter = "Phosphate")
+wk[, Year := factor(Year, levels = sort(unique(Year)))]
+wk[, Month := factor(Month, levels = sort(unique(Month)))]
 
-# trend analysis using Kendall test
-yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[
-  ClusterID %in% yearcriteria][
-    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
-      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
-        NrYears >=5]
-wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
-l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
-timeserieslist <- lapply(
-  l, function(x) xts::xts(x[,"AvgPhosphate"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
-KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
-df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
-names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
-df.KendallResult$ClusterID <- as.integer(names(KendallResult))
-KendallResult.clustered <- df.KendallResult %>% 
-  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
-  filter(!is.na(S)) %>%
-  mutate(trend = case_when(
-    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
-    .$sl <= 0.05 & .$S > 0 ~ "increasing",
-    .$sl > 0.05 ~ "no trend")
-  ) %>%
-  mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
+# Divide the data in three datasets, each one will be treated differently.
+# Min 2 years min 2 month --> emmeans by year and month --- LEVEL 0
+wk0 <- wk[, n := uniqueN(Month), by = .(SeaRegionID, CellCode, Year)][n != 1]
+wk0 <- wk0[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n != 1][, n := NULL]
 
-fwrite(KendallResult.clustered, file.path("Output", "Phosphate_trend.csv"))
+# Min 2 years x months --> emmeans only by year
+wk <- wk[!wk0, on = names(wk0)] # Same as an anti_join --- LEVEL 1
+wk1 <- wk[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n > 1][, n := NULL]
 
-plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Phosphate")
-saveEuropeTrendMap("Phosphate")
+# Only 1 year --> arithmetic mean --- LEVEL 2
+wk2 <- wk[!wk1, on = names(wk1)] # Same as an anti_join
+
+# Apply linear model-emmeans or arithmetic means depending on the data
+source("utilities_average.R")
+wk0_emmeans <- linear_model_average(df=wk0, level=0, indicator="DIP")
+wk1_emmeans <- linear_model_average(df=wk1, level=1, indicator="DIP")
+wk2_means <- linear_model_average(df=wk2, level=2, indicator="DIP")
+
+wk <- rbindlist(list(wk0_emmeans, wk1_emmeans, wk2_means), use.names = T, fill = T)
+
+
+setnames(wk, "avg", "logValue")
+setcolorder(wk, c("CellCode", "Year", "SE", "df", "lower.CL", "upper.CL", "Value", "logValue", "type"))
+
+if (gridtype=="10x10"){
+  fwrite(wk, file.path("Output", "DIP_status_10x10.csv"))
+}else{
+  fwrite(wk, file.path("Output", "DIP_status.csv"))
+}
+
+# plot average status for last 6 years
+wk21 <- wk[Year > assessmentYear - 6 & Year <= assessmentYear]
+wk21 <- wk21[, .(log_mean = mean(logValue, na.rm = T), sd= sd(logValue,na.rm = T),value_mean=mean(Value,na.rm=T)), by = CellCode]
+
+plotStatusGridMaps(data = wk21, parameter = "DIP", gridtype = gridtype)
+saveEuropeStatusMap(parameter = "DIP", gridtype = gridtype)
+
+# trend analysis using linear model and Kendall test
+# Divide the data in two periods
+wk31<- wk[Year < 2000]
+period<-"PRE2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk31[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk31 <- wk31[CellCode %in% requirements[[1]]]
+wk31[, NrYears := .N, by = .(CellCode)]
+
+minY_pre<-min(wk31$Year,na.rm = T)
+maxY_pre<-max(wk31$Year,na.rm = T)
+
+nrYears_pre <- unique(wk31[, .(CellCode,NrYears)])
+
+
+general_trends_pre<-linear_model_trends(df=wk31,indicator="DIP",nrYears=nrYears_pre)
+general_trends_pre$minY <- minY_pre
+general_trends_pre$maxY <- maxY_pre
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_pre, file.path("Output", "DIP_trend_10x10_PRE2000.csv"))
+}else{
+  fwrite(general_trends_pre, file.path("Output", "DIP_trend_PRE2000.csv"))
+}
+
+# Repeat process for second period
+
+# Divide the data in two periods
+wk32<- wk[Year >= 2000]
+period<-"POST2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk32[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk32 <- wk32[CellCode %in% requirements[[1]]]
+wk32[, NrYears := .N, by = .(CellCode)]
+
+minY_post<-min(wk32$Year,na.rm = T)
+maxY_post<-max(wk32$Year,na.rm = T)
+
+nrYears_post <- unique(wk32[, .(CellCode,NrYears)])
+
+
+general_trends_post<-linear_model_trends(df=wk32,indicator="DIP",nrYears=nrYears_post)
+general_trends_post$minY <- minY_post
+general_trends_post$maxY <- maxY_post
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_post, file.path("Output", "DIP_trend_10x10_POST2000.csv"))
+}else{
+  fwrite(general_trends_post, file.path("Output", "DIP_trend_POST2000.csv"))
+}
+
+
+# Plot trends of both periods
+plot_data_pre<-merge(st_as_sf(grid),general_trends_pre, by = "CellCode", all.x = TRUE)
+plot_data_pre<-plot_data_pre%>%
+  dplyr::mutate(trend = factor(trend))
+
+plot_data_post<-merge(st_as_sf(grid),general_trends_post, by = "CellCode", all.x = TRUE)
+plot_data_post<-plot_data_post%>%
+  dplyr::mutate(trend = factor(trend))
+
+plotTrendsGridMaps(pre=plot_data_pre, post=plot_data_post, indicator="DIP")
+
+saveEuropeTrendMap(indicator = "DIP", gridtype=gridtype)
+
 
 # Total Phosphorus (Annual) ----------------------------------------------------
 #   Parameters: [P]
@@ -526,69 +696,147 @@ saveEuropeTrendMap("TotalPhosphorus")
 #     May - September for all other stations
 #   Aggregation Method: Arithmetric mean of mean by station and cluster per year
 
+
+#Assessment should be done for both EEA grid types:
+# 10x10
+# 100+20
+gridtype<-"10x10"
+
 # Filter stations rows and columns --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll
-wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Latitude > 59, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(Chlorophyll) & (ChlorophyllQ != 4 & ChlorophyllQ != 8), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, Temperature, Salinity, Chlorophyll)]
+wk <- stationSamples[Depth <= 10 & ifelse(SeaRegionID == 1 & Latitude > 59, Month >= 6 & Month <= 9, Month >= 5 & Month <= 9) & !is.na(Chlorophyll) & (ChlorophyllQ != 4 & ChlorophyllQ != 8), .(SeaRegionID, ClusterID, Cruise, Station, Latitude, Longitude, Year, Month, Depth, Temperature, Salinity, Chlorophyll)]
 
-# Calculate depth mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth, AvgTemperature, AvgSalinity, AvgChlorophyll, MinChlorophyll, MaxChlorophyll, CountSamples
-wk0 <- wk[, .(AvgTemperature = mean(Temperature), AvgSalinity = mean(Salinity), AvgChlorophyll = mean(Chlorophyll), MinChlorophyll = min(Chlorophyll), MaxChlorophyll = max(Chlorophyll), SampleCount = .N), .(SeaRegionID, ClusterID, Latitude, Longitude, Year, Depth)]
+# Quantile limits applied to all seasonal dataset, when filtering outliers, do not include the limit value
+wk <- wk[, `:=`(limit_min = quantile(Chlorophyll, 0.001),
+                    limit_max = quantile(Chlorophyll, 0.999)),
+             by = SeaRegionID]
 
-# Calculate station mean --> SeaRegionID, ClusterID, Latitude, Longitude, Year, MinDepth, MaxDepth, AvgAvgTemperature, AvgAvgSalinity, AvgAvgChlorophyll, MinMinChlorophyll, MaxMaxChlorophyll, CountSamples
-wk1 <- wk0[, .(MinDepth = min(Depth), MaxDepth = max(Depth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Latitude, Longitude, Year)]
+wk <- wk[Chlorophyll > limit_min & Chlorophyll < limit_max]
 
-# Calculate cluster mean --> SeaRegionID, ClusterID, AvgLatitude, AvgLongitude, Year, MinMinDepth, MaxMaxDepth, AvgAvgAvgTemperature, AvgAvgAvgSalinity, AvgAvgAvgChlorophyll, MinMinMinChlorophyll, MaxMaxMaxChlorophyll, SumSumCountSamples
-wk2 <- wk1[, .(AvgLatitude = mean(Latitude), AvgLongitude = mean(Longitude), MinDepth = min(MinDepth), MaxDepth = max(MaxDepth), AvgTemperature = mean(AvgTemperature), AvgSalinity = mean(AvgSalinity), AvgChlorophyll = mean(AvgChlorophyll), MinChlorophyll = min(MinChlorophyll), MaxChlorophyll = max(MaxChlorophyll), SampleCount = sum(SampleCount)), .(SeaRegionID, ClusterID, Year)]
+# Calculate means per clusterID, month, and year.
+data <- data[, .(
+  Latitude = mean(Latitude),
+  Longitude = mean(Longitude),
+  Chlorophyll = mean(Chlorophyll),
+  minChlorophyll = min(Chlorophyll),
+  maxChlorophyll = max(Chlorophyll),
+  logChlorophyll = mean(log(Chlorophyll))
+), by = .(SeaRegionID, Cruise, Station, Year, Month)]
 
-fwrite(wk2, file.path("Output", "Chlorophyll_status.csv"))
 
-# plot average status for last 5 years 
-wk21 <- wk2[Year > assessmentYear - 5 & Year <= assessmentYear, list(Chlorophyll = mean(AvgChlorophyll)), list(ClusterID, AvgLongitude, AvgLatitude, SeaRegionID)]
-plotStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
-               parameterValue = "Chlorophyll", 
-               invJet = F, 
-               limits = "auto")
-saveEuropeStatusMap(parameter = "Chlorophyll")
+# Classify locations into EEA gridcells
+source("utilities_grid.R")
+locations <- unique(wk[, .(Cruise, Station, Longitude, Latitude)])
+locations <- classify_locations_into_gridcells(locations,gridtype)
 
-# Plot chlorophyll values for all regions separately
-regionsToPlot <- unique(wk21$SeaRegionID)
-for(ii in seq(1:length(regionsToPlot))){
-    plotRegionStatusMaps(bboxEurope, data = wk21, xlong = "AvgLongitude", ylat = "AvgLatitude", 
-                       parameterValue = "Chlorophyll", 
-                       invJet = F, 
-                       limits = "auto",
-                       region = regionsToPlot[ii])
-  saveEuropeStatusMap(parameter = paste0("Chlorophyll_", regionsToPlot[ii]))
+wk <- locations[wk, on = .(Cruise, Station, Longitude, Latitude), nomatch = 0]
+
+wk[, Year := factor(Year, levels = sort(unique(Year)))]
+wk[, Month := factor(Month, levels = sort(unique(Month)))]
+
+# Divide the data in three datasets, each one will be treated differently.
+# Min 2 years min 2 month --> emmeans by year and month --- LEVEL 0
+wk0 <- wk[, n := uniqueN(Month), by = .(SeaRegionID, CellCode, Year)][n != 1]
+wk0 <- wk0[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n != 1][, n := NULL]
+
+# Min 2 years x months --> emmeans only by year
+wk <- wk[!wk0, on = names(wk0)] # Same as an anti_join --- LEVEL 1
+wk1 <- wk[, n := uniqueN(Year), by = .(SeaRegionID, CellCode)][n > 1][, n := NULL]
+
+# Only 1 year --> arithmetic mean --- LEVEL 2
+wk2 <- wk[!wk1, on = names(wk1)] # Same as an anti_join
+
+# Apply linear model-emmeans or arithmetic means depending on the data
+source("utilities_average.R")
+wk0_emmeans <- linear_model_average(df=wk0, level=0, indicator="CHL")
+wk1_emmeans <- linear_model_average(df=wk1, level=1, indicator="CHL")
+wk2_means <- linear_model_average(df=wk2, level=2, indicator="CHL")
+
+wk <- rbindlist(list(wk0_emmeans, wk1_emmeans, wk2_means), use.names = T, fill = T)
+
+
+setnames(wk, "avg", "logValue")
+setcolorder(wk, c("CellCode", "Year", "SE", "df", "lower.CL", "upper.CL", "Value", "logValue", "type"))
+
+if (gridtype=="10x10"){
+  fwrite(wk, file.path("Output", "Chlorophyll_status_10x10.csv"))
+}else{
+  fwrite(wk, file.path("Output", "Chlorophyll_status.csv"))
+}
+# plot average status for last 6 years
+wk21 <- wk[Year > assessmentYear - 6 & Year <= assessmentYear]
+wk21 <- wk21[, .(log_mean = mean(logValue, na.rm = T), sd= sd(logValue,na.rm = T),value_mean=mean(Value,na.rm=T)), by = CellCode]
+
+
+plotStatusGridMaps(data = wk21, parameter = "CHL", gridtype = gridtype)
+saveEuropeStatusMap(parameter = "CHL", gridtype = gridtype)
+
+# trend analysis using linear model and Kendall test
+# Divide the data in two periods
+wk31<- wk[Year < 2000]
+period<-"PRE2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk31[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk31 <- wk31[CellCode %in% requirements[[1]]]
+wk31[, NrYears := .N, by = .(CellCode)]
+
+minY_pre<-min(wk31$Year,na.rm = T)
+maxY_pre<-max(wk31$Year,na.rm = T)
+
+nrYears_pre <- unique(wk31[, .(CellCode,NrYears)])
+
+
+general_trends_pre<-linear_model_trends(df=wk31,indicator="CHL",nrYears=nrYears_pre)
+general_trends_pre$minY <- minY_pre
+general_trends_pre$maxY <- maxY_pre
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_pre, file.path("Output", "Chlorophyll_trend_10x10_PRE2000.csv"))
+}else{
+  fwrite(general_trends_pre, file.path("Output", "Chlorophyll_trend_PRE2000.csv"))
 }
 
-# trend analysis using Kendall test
-yearcriteria <- wk2[Year>2006, unique(ClusterID)]
-clusterSelection <- wk2[
-  ClusterID %in% yearcriteria][
-    , list(NrClustersPerYear = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, Year, SeaRegionID)][
-      , .(NrYears = .N, AvgLatitude = mean(AvgLatitude), AvgLongitude = mean(AvgLongitude)), by = .(ClusterID, SeaRegionID)][
-        NrYears >=5]
-wk22 <- wk2[ClusterID %in% clusterSelection[[1]]]
-l <- wk22 %>% as.data.frame() %>% split(.$ClusterID) 
-timeserieslist <- lapply(
-  l, function(x) xts::xts(x[,"AvgChlorophyll"], order.by = as.Date(as.character(x[,"Year"]),format = "%Y")))
-KendallResult <- lapply(timeserieslist, function(x) MannKendall(x))
-df.KendallResult <- as.data.frame((matrix(unlist(list.flatten(KendallResult)), ncol  = 5, byrow = T)))
-names(df.KendallResult) <- c("tau", "sl", "S", "D", "varS")
-df.KendallResult$ClusterID <- as.integer(names(KendallResult))
-KendallResult.clustered <- df.KendallResult %>% 
-  left_join(clusterSelection, by = c('ClusterID' = 'ClusterID')) %>%
-  filter(!is.na(S)) %>%
-  mutate(trend = case_when(
-    .$sl <= 0.05 & .$S < 0 ~ "decreasing",
-    .$sl <= 0.05 & .$S > 0 ~ "increasing",
-    .$sl > 0.05 ~ "no trend")
-  ) %>%
-  mutate(trend = as.factor(trend))
-KendallResult.clustered$trend <- factor(KendallResult.clustered$trend, levels =  c("no trend", "decreasing", "increasing"))
 
-fwrite(KendallResult.clustered, file.path("Output", "Chlorophyll_trend.csv"))
+# Repeat process for second period
 
-plotKendallClasses(plotdata = KendallResult.clustered, parameterValue = "Chlorophyll")
-saveEuropeTrendMap("Chlorophyll")
+# Divide the data in two periods
+wk32<- wk[Year >= 2000]
+period<-"POST2000"
+
+#To calculate the trend, we need at least 5 years of data
+requirements <- wk32[, .(NrYears= .N), by = .(CellCode)][NrYears >=5]
+wk32 <- wk32[CellCode %in% requirements[[1]]]
+wk32[, NrYears := .N, by = .(CellCode)]
+
+minY_post<-min(wk32$Year,na.rm = T)
+maxY_post<-max(wk32$Year,na.rm = T)
+
+nrYears_post <- unique(wk32[, .(CellCode,NrYears)])
+
+
+general_trends_post<-linear_model_trends(df=wk32,indicator="CHL",nrYears=nrYears_post)
+general_trends_post$minY <- minY_post
+general_trends_post$maxY <- maxY_post
+
+if (gridtype=="10x10"){
+  fwrite(general_trends_post, file.path("Output", "Chlorophyll_trend_10x10_POST2000.csv"))
+}else{
+  fwrite(general_trends_post, file.path("Output", "Chlorophyll_trend_POST2000.csv"))
+}
+
+
+# Plot trends of both periods
+plot_data_pre<-merge(st_as_sf(grid),general_trends_pre, by = "CellCode", all.x = TRUE)
+plot_data_pre<-plot_data_pre%>%
+  dplyr::mutate(trend = factor(trend))
+
+plot_data_post<-merge(st_as_sf(grid),general_trends_post, by = "CellCode", all.x = TRUE)
+plot_data_post<-plot_data_post%>%
+  dplyr::mutate(trend = factor(trend))
+
+plotTrendsGridMaps(pre=plot_data_pre, post=plot_data_post, indicator="CHL")
+
+saveEuropeTrendMap(indicator = "CHL", gridtype=gridtype)
 
 # DissolvedOxygen (Summer/Autumn) -----------------------------------------------------
 #   Parameters: Dissolved Oxygen
