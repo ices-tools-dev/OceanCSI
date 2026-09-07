@@ -10,3 +10,4 @@ assessment_grid_10_countries.sbn
 assessment_grid_10_countries.sbx
 assessment_grid_10_countries.shp
 assessment_grid_10_countries.shx
+.
