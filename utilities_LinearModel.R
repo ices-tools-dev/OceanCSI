@@ -6,11 +6,11 @@ library(Kendall)
 
 linear_model_average<-function(df,level,indicator){
   
-  if (indicator=="CHL"){
+  if (indicator == "CHL"){
     logparam <- "logChlorophyll"
-  }else if (indicator=="DIN"){
+  }else if (indicator == "DIN"){
     logparam <- "logDIN"
-  }else if (indicator=="DIP"){
+  }else if (indicator == "DIP"){
     logparam <- "logPhosphate"
   }
   
