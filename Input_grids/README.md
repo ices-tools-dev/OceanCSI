@@ -1,0 +1,12 @@
+Put the following files here:
+assessment_grid_100_20_country.dbf
+assessment_grid_100_20_country.prj
+assessment_grid_100_20_country.shp
+assessment_grid_100_20_country.shx
+assessment_grid_10_countries.cpg
+assessment_grid_10_countries.dbf
+assessment_grid_10_countries.prj
+assessment_grid_10_countries.sbn
+assessment_grid_10_countries.sbx
+assessment_grid_10_countries.shp
+assessment_grid_10_countries.shx
