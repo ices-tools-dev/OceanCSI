@@ -5,7 +5,7 @@ date: "2025-03-03"
 output: html_document
 params: 
   percentile: "05" # change if necessary
-  assessmentYear: 2025
+  assessmentYear: 2026
 ---
 
 ```{r setup, include=FALSE}
@@ -26,14 +26,14 @@ ETC_ClassNames <- c("DO<2", "DO 2-4", "DO 4-6", "DO>6")
 
 ```
 
-Improve workflow
+Workflow
 
 -   read data
 -   check quality
     -   are values valid?
     -   are geometries correct?
-    -   are bathymetric values complete?
--   filter data based on depth, month, other?
+    -   are bathymetric values complete? In case not, run script "fixBathymetric.R" first.
+-   filter data based on depth, month
 -   assign oxygen class
 -   assign period (\< 2000, \>= 2000)
 -   calculate relevant percentiles
@@ -45,7 +45,9 @@ Improve workflow
 
 ```{r read-data}
 # stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
-load("data/stationSamples_correctedBathymetry.RData")
+# Instead: run script "fixBathymetric.R"first, which produces stationSamples_correctedBathymetry.RData.
+
+load("Data2026/stationSamples_correctedBathymetry.Rdata")
 
 stationSamples_with_new_bathymetric$Bathymetric <- stationSamples_with_new_bathymetric$newBathymetric2
 
@@ -111,11 +113,11 @@ Make bathymetry complete if necessary
 
 Make selection based on:
 
--   depth of the sample - In case the total depth of the water column is shallower than 100 m, samples are selected from the bottom 20 meters. In deeper waters, samples are selected from the deepest 50 meters.
--   Quality codes less than good (4 and 8) are filtered out
--   Only samples taken in months 7 - 10 are regarded
-
-Convert units of oxygen to mg/l $O_2$. Convert hydrogen sulphide to negative oxygen concentrations in mg/l $O_2$
+- depth of the sample - In case the total depth of the water column is shallower than 100 m, samples are selected from the bottom 20 meters. In deeper waters, samples are selected from the deepest 50 meters.
+- Quality codes less than good (4 and 8) are filtered out
+- Only samples taken in months 7 - 10 are regarded
+- Convert units of oxygen to mg/l $O_2$. 
+- Convert hydrogen sulphide to negative oxygen concentrations in mg/l $O_2$
 
 ```{r}
 
@@ -174,7 +176,9 @@ p <- wk %>%
   mutate(diffDepth = Bathymetric - Depth) %>%
   # filter(Depth > Bathymetric) %>%
   sample_n(50000) %>%
-  ggplot(aes(x = Bathymetric, y = diffDepth)) +
+  # filter(Oxygen < 5) %>%
+  ggplot(aes(x = Bathymetric, y = diffDepth, alpha = Oxygen)) +
+  scale_alpha_continuous(transform = "reverse", range = c(0.05,1)) +
   geom_point()
 ggMarginal(p, type="histogram")
 ```
@@ -280,8 +284,6 @@ prefix = paste0("perc", params$percentile, "_", assessmentYear, "_")
 
 ### Calculate quartile values
 
-The quartile values are used to assess whether there are 
-
 ```{r}
 Quartile_all <- wk0 %>%
   group_by(SeaRegionID, ClusterID, Year) %>%
@@ -300,7 +302,8 @@ Quartile_all <- wk0 %>%
     .groups = "drop"
   )
 
-# # # Calculate mean of lower quartile - This is not further used I think (CHECK !!)
+# # # Calculate mean of lower quartile - This is not used anymore
+# 
 # mean_percentile <- wk0 %>% ungroup() %>%
 #   left_join(Quartile_all) %>% ungroup() %>%
 #   filter(AvgOxygenHydrogenSulphide <= q) %>%
@@ -335,7 +338,6 @@ wk21 <- wk2 %>%
     AvgLongitude = mean(AvgLongitude, na.rm = T),
     AvgLatitude = mean(AvgLatitude, na.rm = T)
   )
-
 
 plotStatusMaps(bboxEurope, data = wk21, 
                xlong = "AvgLongitude", 

@@ -4,12 +4,12 @@ library(data.table)
 library(tidyverse)
 library(leaflet)
 
-assessmentYear <- 2025
+assessmentYear <- 2026
 setDTthreads(4)
 
 # stationSamples <- fread(file.path("Data", "1980-2023_StationSamplesOxygen.csv.gz"))
 
-stationSamples <- fread(file.path("Data2025", "Data", "StationSamplesOxygen.csv.gz"))
+stationSamples <- fread(file.path("Data2026", "Data", "StationSamplesOxygen.csv.gz"))
 
 # onderstaand klopt niet. 
 
@@ -58,7 +58,7 @@ missingBathymetries = stationSamples %>%
 
 hist(missingBathymetries$percentmissing)
 
-fixing_needed = FALSE
+fixing_needed = TRUE
 
 if(fixing_needed){
   
@@ -72,8 +72,8 @@ if(fixing_needed){
   # break up in smaller bits for better control
   
   n = 10000
-  # bathList = list()
-  for(ii in 37:ceiling(nrow(needs_fixing)/n)){
+  bathList = list()
+  for(ii in 1:ceiling(nrow(needs_fixing)/n)){
     
     # ii = 2
     
@@ -92,7 +92,7 @@ if(fixing_needed){
           map2( 
             Longitude, 
             Latitude, 
-            get.bathymetric,
+            get.bathymetric2,
             .progress = TRUE
           )
         )
@@ -155,6 +155,12 @@ completedBathymetries <- missingBathymetries %>%
 completedBathymetries %>%
   count(is.na(newBathymetric2))
 
+completedBathymetries %>%
+  sample_n(10000) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(label = ~newBathymetric2)
+
 
 stationSamples_with_new_bathymetric <- stationSamples %>%
   left_join(completedBathymetries)
@@ -184,5 +190,5 @@ stationSamples_with_new_bathymetric %>%
 
 
 
-save(stationSamples_with_new_bathymetric, file = "Data/stationSamples_correctedBathymetry.Rdata")
+save(stationSamples_with_new_bathymetric, file = "Data2026/stationSamples_correctedBathymetry.Rdata")
 
